@@ -487,12 +487,9 @@ def extract(args):
 
     backbone = timm.create_model(args.arch, features_only=True, pretrained=True)
     model = ISCNet(backbone, p=args.gem_p, eval_p=args.gem_eval_p)
+    model = nn.DataParallel(model)
 
     state_dict = torch.load(args.weight, map_location='cpu')['state_dict']
-    for k in list(state_dict.keys()):
-        if k.startswith('module.'):
-            state_dict[k[len('module.'):]] = state_dict[k]
-            del state_dict[k]
     model.load_state_dict(state_dict, strict=False)
 
     model.eval().cuda()

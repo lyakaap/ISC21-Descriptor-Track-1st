@@ -222,12 +222,12 @@ python v19.py \
   -a tf_efficientnetv2_m_in21k \
   --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 7 \
   --epochs 1 \
-  --lr 1.0 --wd 1e-5 \
+  --lr 0.1 --wd 1e-5 \
   --batch-size 64 --ncrops 2 \
   --gem-p 3.0 --gem-eval-p 5.0 \
   --pos-margin 0.0 --neg-margin 1.1 \
   --input-size 256 --sample-size 100000 --memory-size 4096 \
-  ../train_subset
+  ../input/training_images/
 CUDA_VISIBLE_DEVICES=2 python v19.py \
   -a tf_efficientnetv2_m_in21k \
   --batch-size 256 \
@@ -241,17 +241,17 @@ python v20.py \
   -a tf_efficientnetv2_m_in21k \
   --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 7 \
   --epochs 1 \
-  --lr 1.0 --wd 1e-5 \
+  --lr 0.1 --wd 1e-5 \
   --batch-size 64 --ncrops 2 \
   --gem-p 3.0 --gem-eval-p 5.0 \
   --pos-margin 0.0 --neg-margin 1.1 \
   --input-size 256 --sample-size 100000 --memory-size 4096 \
-  ../train_subset
-CUDA_VISIBLE_DEVICES=2 python v20.py \
+  ../input/training_images/
+python v20.py \
   -a tf_efficientnetv2_m_in21k \
-  --batch-size 256 \
+  --batch-size 1024 \
   --mode extract \
-  --gem-p 3.0 --gem-eval-p 5.0 \
+  --gem-p 3.0 --gem-eval-p 6.0 \
   --weight ./v20/train/checkpoint_0000.pth.tar \
   --input-size 256 \
   --eval-subset \
@@ -272,6 +272,14 @@ CUDA_VISIBLE_DEVICES=2 python v19.py \
   --mode extract \
   --gem-p 3.0 --gem-eval-p 5.0 \
   --weight ./v19/train/checkpoint_0009.pth.tar \
+  --input-size 384 \
+  ../input/
+python v19.py \
+  -a tf_efficientnetv2_s_in21k \
+  --batch-size 512 \
+  --mode extract \
+  --gem-p 3.0 --gem-eval-p 5.0 \
+  --weight ./v19/train/checkpoint_0000.pth.tar \
   --input-size 384 \
   ../input/
 
@@ -378,3 +386,18 @@ python v18.py \
   --pos-margin 0.0 --neg-margin 1.1 \
   --input-size 256 --sample-size 100000 --memory-size 4096 \
   ../train_subset
+
+{
+  "average_precision": 0.4996100416157455,
+  "recall_p90": 0.3742736926467642
+}
+python v19.py \
+  -a tf_efficientnetv2_m_in21k \
+  --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 7 \
+  --epochs 1 \
+  --lr 0.1 --wd 1e-5 \
+  --batch-size 64 --ncrops 2 \
+  --gem-p 3.0 --gem-eval-p 5.0 \
+  --pos-margin 0.0 --neg-margin 1.1 \
+  --input-size 256 --sample-size 100000 --memory-size 4096 \
+  ../input/training_images/
