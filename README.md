@@ -21,6 +21,7 @@
 - v17: v10 + deeper head
 - v18: v10 + different backbone
 - v19: v18 + amp
+- v20: v19, no sync bn
 
 python v1.py \
   -a dm_nfnet_f0 \
@@ -233,6 +234,25 @@ CUDA_VISIBLE_DEVICES=2 python v19.py \
   --mode extract \
   --gem-p 3.0 --gem-eval-p 5.0 \
   --weight ./v19/train/checkpoint_0000.pth.tar \
+  --input-size 256 \
+  --eval-subset \
+  ../input/
+python v20.py \
+  -a tf_efficientnetv2_m_in21k \
+  --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 7 \
+  --epochs 1 \
+  --lr 1.0 --wd 1e-5 \
+  --batch-size 64 --ncrops 2 \
+  --gem-p 3.0 --gem-eval-p 5.0 \
+  --pos-margin 0.0 --neg-margin 1.1 \
+  --input-size 256 --sample-size 100000 --memory-size 4096 \
+  ../train_subset
+CUDA_VISIBLE_DEVICES=2 python v20.py \
+  -a tf_efficientnetv2_m_in21k \
+  --batch-size 256 \
+  --mode extract \
+  --gem-p 3.0 --gem-eval-p 5.0 \
+  --weight ./v20/train/checkpoint_0000.pth.tar \
   --input-size 256 \
   --eval-subset \
   ../input/
