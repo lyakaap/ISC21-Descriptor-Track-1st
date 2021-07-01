@@ -491,12 +491,9 @@ def extract(args):
 
     backbone = timm.create_model(args.arch, features_only=True, pretrained=True)
     model = ISCNet(backbone, p=args.gem_p, eval_p=args.gem_eval_p)
+    model = nn.DataParallel(model)
 
     state_dict = torch.load(args.weight, map_location='cpu')['state_dict']
-    for k in list(state_dict.keys()):
-        if k.startswith('module.'):
-            state_dict[k[len('module.'):]] = state_dict[k]
-            del state_dict[k]
     model.load_state_dict(state_dict, strict=False)
 
     model.eval().cuda()
@@ -539,7 +536,7 @@ def extract(args):
         f.create_dataset('reference', data=reference_feats)
         f.create_dataset('query_ids', data=query_ids)
         f.create_dataset('reference_ids', data=reference_ids)
-    
+
     subprocess.run(f'python ../scripts/eval_metrics.py {ver}/extract/fb-isc-submission.h5 ../input/public_ground_truth.csv', shell=True)
 
 

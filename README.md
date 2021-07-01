@@ -274,13 +274,14 @@ CUDA_VISIBLE_DEVICES=2 python v19.py \
   --weight ./v19/train/checkpoint_0009.pth.tar \
   --input-size 384 \
   ../input/
-python v19.py \
-  -a tf_efficientnetv2_s_in21k \
+python v8.py \
+  -a dm_nfnet_f0 \
   --batch-size 512 \
   --mode extract \
   --gem-p 3.0 --gem-eval-p 5.0 \
-  --weight ./v19/train/checkpoint_0000.pth.tar \
-  --input-size 384 \
+  --weight ./v8/train/checkpoint_0004.pth.tar \
+  --input-size 320 \
+  --eval-subset \
   ../input/
 
 
