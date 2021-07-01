@@ -38,14 +38,13 @@ from augly.image import (
     EncodingQuality,
     OverlayOntoScreenshot,
     RandomBlur,
-    RandomBrightness,
     RandomEmojiOverlay,
     RandomPixelization,
-    Saturation,
     ShufflePixels,
     OneOf,
 )
 
+warnings.simplefilter('ignore', UserWarning)
 ver = __file__.replace('.py', '')
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
@@ -102,6 +101,7 @@ parser.add_argument('--input-size', default=224, type=int)
 parser.add_argument('--sample-size', default=100000, type=int)
 parser.add_argument('--weight', type=str)
 parser.add_argument('--eval-subset', action='store_true')
+parser.add_argument('--memory-size', default=1024, type=int)
 
 
 def gem(x, p=3, eps=1e-6):
@@ -280,9 +280,6 @@ def main_worker(gpu, ngpus_per_node, args):
             pass
         builtins.print = print_pass
 
-    if args.gpu is not None:
-        print("Use GPU: {} for training".format(args.gpu))
-
     if args.distributed:
         if args.dist_url == "env://" and args.rank == -1:
             args.rank = int(os.environ["RANK"])
@@ -292,7 +289,7 @@ def main_worker(gpu, ngpus_per_node, args):
             args.rank = args.rank * ngpus_per_node + gpu
         dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
                                 world_size=args.world_size, rank=args.rank)
-        torch.distributed.barrier()
+        torch.distributed.barrier(device_ids=[args.gpu])
 
     backbone = timm.create_model(args.arch, features_only=True, pretrained=True)
     model = ISCNet(backbone, p=args.gem_p, eval_p=args.gem_eval_p)
@@ -331,9 +328,8 @@ def main_worker(gpu, ngpus_per_node, args):
         raise NotImplementedError("Only DistributedDataParallel is supported.")
 
     loss_fn = losses.ContrastiveLoss(pos_margin=args.pos_margin, neg_margin=args.neg_margin)
+    loss_fn = losses.CrossBatchMemory(loss_fn, embedding_size=256, memory_size=args.memory_size)
     loss_fn = pml_dist.DistributedLossWrapper(loss=loss_fn, device_ids=[args.rank])
-    # miner = miners.MultiSimilarityMiner()
-    # miner = pml_dist.DistributedMinerWrapper(miner=miner)
 
     decay = []
     no_decay = []
@@ -351,8 +347,7 @@ def main_worker(gpu, ngpus_per_node, args):
     ]
 
     optimizer = torch.optim.SGD(optim_params, init_lr, momentum=args.momentum)
-    # optimizer = MADGRAD(optim_params, init_lr, momentum=args.momentum)
-    # optimizer = torch.optim.AdamW(optim_params, init_lr)
+    scaler = torch.cuda.amp.GradScaler()
 
     # optionally resume from a checkpoint
     if args.resume:
@@ -378,7 +373,7 @@ def main_worker(gpu, ngpus_per_node, args):
         transforms.RandomResizedCrop(args.input_size, scale=(0.5, 1.)),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        transforms.Normalize(mean=backbone.default_cfg['mean'], std=backbone.default_cfg['std'])
     ]
 
     overlay1 = OverlayOntoScreenshot()
@@ -387,8 +382,6 @@ def main_worker(gpu, ngpus_per_node, args):
         OneOf([overlay1, overlay2], p=0.01),
         transforms.RandomResizedCrop(args.input_size, scale=(0.2, 1.)),
         transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8),
-        Saturation(factor=2.0, p=0.2),
-        RandomBrightness(min_factor=0.5, max_factor=1.5, p=0.2),
         RandomPixelization(p=0.2),
         ShufflePixels(factor=0.1, p=0.2),
         OneOf([EncodingQuality(quality=q) for q in [10, 20, 30, 50]], p=0.5),
@@ -402,7 +395,7 @@ def main_worker(gpu, ngpus_per_node, args):
         convert2rgb,
         transforms.ToTensor(),
         transforms.RandomErasing(value='random', p=0.2),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        transforms.Normalize(mean=backbone.default_cfg['mean'], std=backbone.default_cfg['std']),
     ]
 
     train_paths = list(Path(args.data).glob('**/*.jpg'))[:args.sample_size]
@@ -429,7 +422,7 @@ def main_worker(gpu, ngpus_per_node, args):
             train_sampler.set_epoch(epoch)
         adjust_learning_rate(optimizer, init_lr, epoch, args)
 
-        train_one_epoch(train_loader, model, loss_fn, optimizer, epoch, args)
+        train_one_epoch(train_loader, model, loss_fn, optimizer, scaler, epoch, args)
 
         if not args.multiprocessing_distributed or (args.multiprocessing_distributed
                                                     and args.rank % ngpus_per_node == 0):
@@ -442,27 +435,30 @@ def main_worker(gpu, ngpus_per_node, args):
             }, is_best=False, filename=f'{ver}/train/checkpoint_{epoch:04d}.pth.tar')
 
 
-def train_one_epoch(train_loader, model, loss_fn, optimizer, epoch, args):
+def train_one_epoch(train_loader, model, loss_fn, optimizer, scaler, epoch, args):
     losses = AverageMeter('Loss', ':.4f')
-    progress = tqdm(train_loader, desc=f'epoch {epoch + 1}', leave=False, total=len(train_loader))
+    progress = tqdm(train_loader, desc=f'epoch {epoch}', leave=False, total=len(train_loader))
 
     model.train()
 
     for labels, images in progress:
+        optimizer.zero_grad()
+
         labels = labels.cuda(args.gpu, non_blocking=True)
         images = torch.cat([
             image for image in images
         ], dim=0).cuda(args.gpu, non_blocking=True)
         labels = torch.tile(labels, dims=(args.ncrops,))
 
-        embeddings = model(images)
-        loss = loss_fn(embeddings, labels)
+        with torch.cuda.amp.autocast():
+            embeddings = model(images)
+            loss = loss_fn(embeddings, labels)
 
         losses.update(loss.item(), images.size(0))
 
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
 
         progress.set_postfix(loss=losses.avg)
     
@@ -507,7 +503,7 @@ def extract(args):
         transforms.Resize(args.input_size + 32),
         transforms.CenterCrop(args.input_size),
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        transforms.Normalize(mean=backbone.default_cfg['mean'], std=backbone.default_cfg['std'])
     ]
 
     datasets = {
@@ -524,7 +520,7 @@ def extract(args):
         feats = []
         for _, image in tqdm(loader, total=len(loader)):
             image = image.cuda()
-            with torch.no_grad():
+            with torch.no_grad(), torch.cuda.amp.autocast():
                 f = model(image)
             feats.append(f.cpu().numpy())
         feats = np.concatenate(feats, axis=0)
@@ -585,8 +581,6 @@ def adjust_learning_rate(optimizer, init_lr, epoch, args):
 
 
 if __name__ == '__main__':
-    warnings.simplefilter('ignore', UserWarning)
-
     if not Path(f'{ver}/train').exists():
         Path(f'{ver}/train').mkdir(parents=True)
     if not Path(f'{ver}/extract').exists():

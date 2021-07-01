@@ -29,6 +29,7 @@ import timm
 from PIL import Image, ImageFilter
 from tqdm import tqdm
 from pytorch_metric_learning.utils import distributed as pml_dist
+from pytorch_metric_learning.utils import loss_and_miner_utils as lmu
 from pytorch_metric_learning import losses, miners
 from augly.image.functional import overlay_emoji, overlay_text
 from augly.image.transforms import BaseTransform
@@ -38,14 +39,13 @@ from augly.image import (
     EncodingQuality,
     OverlayOntoScreenshot,
     RandomBlur,
-    RandomBrightness,
     RandomEmojiOverlay,
     RandomPixelization,
-    Saturation,
     ShufflePixels,
     OneOf,
 )
 
+warnings.simplefilter('ignore', UserWarning)
 ver = __file__.replace('.py', '')
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
@@ -102,6 +102,7 @@ parser.add_argument('--input-size', default=224, type=int)
 parser.add_argument('--sample-size', default=100000, type=int)
 parser.add_argument('--weight', type=str)
 parser.add_argument('--eval-subset', action='store_true')
+parser.add_argument('--memory-size', default=1024, type=int)
 
 
 def gem(x, p=3, eps=1e-6):
@@ -237,6 +238,16 @@ def convert2rgb(x):
     return x.convert('RGB')
 
 
+class BipartiteMiner(miners.BaseTupleMiner):
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def mine(self, embeddings, labels, ref_emb, ref_labels):
+        a1, p, a2, n = lmu.get_all_pairs_indices(labels, ref_labels)
+        return a1, p, a2, n
+
+
 def train(args):
 
     if args.seed is not None:
@@ -330,10 +341,11 @@ def main_worker(gpu, ngpus_per_node, args):
         # this code only supports DistributedDataParallel.
         raise NotImplementedError("Only DistributedDataParallel is supported.")
 
+    miner = BipartiteMiner()
+    miner = pml_dist.DistributedMinerWrapper(miner=miner)
     loss_fn = losses.ContrastiveLoss(pos_margin=args.pos_margin, neg_margin=args.neg_margin)
+    loss_fn = losses.CrossBatchMemory(loss_fn, embedding_size=256, memory_size=args.memory_size, miner=miner)
     loss_fn = pml_dist.DistributedLossWrapper(loss=loss_fn, device_ids=[args.rank])
-    # miner = miners.MultiSimilarityMiner()
-    # miner = pml_dist.DistributedMinerWrapper(miner=miner)
 
     decay = []
     no_decay = []
@@ -387,8 +399,6 @@ def main_worker(gpu, ngpus_per_node, args):
         OneOf([overlay1, overlay2], p=0.01),
         transforms.RandomResizedCrop(args.input_size, scale=(0.2, 1.)),
         transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8),
-        Saturation(factor=2.0, p=0.2),
-        RandomBrightness(min_factor=0.5, max_factor=1.5, p=0.2),
         RandomPixelization(p=0.2),
         ShufflePixels(factor=0.1, p=0.2),
         OneOf([EncodingQuality(quality=q) for q in [10, 20, 30, 50]], p=0.5),
@@ -449,6 +459,8 @@ def train_one_epoch(train_loader, model, loss_fn, optimizer, epoch, args):
     model.train()
 
     for labels, images in progress:
+        enqueue_idx = torch.arange(labels.size(0))
+
         labels = labels.cuda(args.gpu, non_blocking=True)
         images = torch.cat([
             image for image in images
@@ -456,7 +468,7 @@ def train_one_epoch(train_loader, model, loss_fn, optimizer, epoch, args):
         labels = torch.tile(labels, dims=(args.ncrops,))
 
         embeddings = model(images)
-        loss = loss_fn(embeddings, labels)
+        loss = loss_fn(embeddings, labels, enqueue_idx=enqueue_idx)
 
         losses.update(loss.item(), images.size(0))
 
@@ -585,8 +597,6 @@ def adjust_learning_rate(optimizer, init_lr, epoch, args):
 
 
 if __name__ == '__main__':
-    warnings.simplefilter('ignore', UserWarning)
-
     if not Path(f'{ver}/train').exists():
         Path(f'{ver}/train').mkdir(parents=True)
     if not Path(f'{ver}/extract').exists():

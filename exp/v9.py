@@ -387,8 +387,6 @@ def main_worker(gpu, ngpus_per_node, args):
         OneOf([overlay1, overlay2], p=0.01),
         transforms.RandomResizedCrop(args.input_size, scale=(0.2, 1.)),
         transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8),
-        Saturation(factor=2.0, p=0.2),
-        RandomBrightness(min_factor=0.5, max_factor=1.5, p=0.2),
         RandomPixelization(p=0.2),
         ShufflePixels(factor=0.1, p=0.2),
         OneOf([EncodingQuality(quality=q) for q in [10, 20, 30, 50]], p=0.5),

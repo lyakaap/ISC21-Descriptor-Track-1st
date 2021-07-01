@@ -38,14 +38,13 @@ from augly.image import (
     EncodingQuality,
     OverlayOntoScreenshot,
     RandomBlur,
-    RandomBrightness,
     RandomEmojiOverlay,
     RandomPixelization,
-    Saturation,
     ShufflePixels,
     OneOf,
 )
 
+warnings.simplefilter('ignore', UserWarning)
 ver = __file__.replace('.py', '')
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
@@ -102,6 +101,7 @@ parser.add_argument('--input-size', default=224, type=int)
 parser.add_argument('--sample-size', default=100000, type=int)
 parser.add_argument('--weight', type=str)
 parser.add_argument('--eval-subset', action='store_true')
+parser.add_argument('--memory-size', default=1024, type=int)
 
 
 def gem(x, p=3, eps=1e-6):
@@ -115,24 +115,31 @@ class ISCNet(nn.Module):
 
         self.backbone = backbone
 
-        self.fc = nn.Linear(self.backbone.feature_info.info[-1]['num_chs'], fc_dim, bias=False)
-        self.bn = nn.BatchNorm1d(fc_dim)
-        self._init_params()
+        self.projector = nn.Sequential(nn.Linear(self.backbone.feature_info.info[-1]['num_chs'], fc_dim, bias=False),
+                                       nn.BatchNorm1d(fc_dim),
+                                       nn.ReLU(inplace=True),  # first layer
+                                       nn.Linear(fc_dim, fc_dim, bias=False),
+                                       nn.BatchNorm1d(fc_dim))
+                                    #    nn.ReLU(inplace=True),  # second layer
+                                    #    nn.Linear(fc_dim, fc_dim, bias=False),
+                                    #    nn.BatchNorm1d(fc_dim, affine=True))  # output layer
         self.p = p
         self.eval_p = eval_p
 
     def _init_params(self):
-        nn.init.xavier_normal_(self.fc.weight)
-        nn.init.constant_(self.bn.weight, 1)
-        nn.init.constant_(self.bn.bias, 0)
+        for layer in self.projector:
+            if isinstance(layer, nn.Linear):
+                nn.init.xavier_normal_(layer.weight)
+            elif isinstance(layer, nn.BatchNorm1d) and layer.affine:
+                nn.init.constant_(self.bn.weight, 1)
+                nn.init.constant_(self.bn.bias, 0)
 
     def forward(self, x):
         batch_size = x.shape[0]
         x = self.backbone(x)[-1]
         p = self.p if self.training else self.eval_p
         x = gem(x, p).view(batch_size, -1)
-        x = self.fc(x)
-        x = self.bn(x)
+        x = self.projector(x)
         x = F.normalize(x)
         return x
 
@@ -331,6 +338,7 @@ def main_worker(gpu, ngpus_per_node, args):
         raise NotImplementedError("Only DistributedDataParallel is supported.")
 
     loss_fn = losses.ContrastiveLoss(pos_margin=args.pos_margin, neg_margin=args.neg_margin)
+    loss_fn = losses.CrossBatchMemory(loss_fn, embedding_size=256, memory_size=args.memory_size)
     loss_fn = pml_dist.DistributedLossWrapper(loss=loss_fn, device_ids=[args.rank])
     # miner = miners.MultiSimilarityMiner()
     # miner = pml_dist.DistributedMinerWrapper(miner=miner)
@@ -387,8 +395,6 @@ def main_worker(gpu, ngpus_per_node, args):
         OneOf([overlay1, overlay2], p=0.01),
         transforms.RandomResizedCrop(args.input_size, scale=(0.2, 1.)),
         transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8),
-        Saturation(factor=2.0, p=0.2),
-        RandomBrightness(min_factor=0.5, max_factor=1.5, p=0.2),
         RandomPixelization(p=0.2),
         ShufflePixels(factor=0.1, p=0.2),
         OneOf([EncodingQuality(quality=q) for q in [10, 20, 30, 50]], p=0.5),
@@ -585,8 +591,6 @@ def adjust_learning_rate(optimizer, init_lr, epoch, args):
 
 
 if __name__ == '__main__':
-    warnings.simplefilter('ignore', UserWarning)
-
     if not Path(f'{ver}/train').exists():
         Path(f'{ver}/train').mkdir(parents=True)
     if not Path(f'{ver}/extract').exists():

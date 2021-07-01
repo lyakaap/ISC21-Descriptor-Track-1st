@@ -46,6 +46,36 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
+class WhiteningPCA:
+    def __init__(self, eps=1e-9):
+        self.eps = eps
+        self.m = None
+        self.P = None
+
+    def fit(self, X: np.ndarray):
+        """size should be N >> D"""
+        N, D = X.shape
+
+        self.m = X.mean(axis=0)  # (D,)
+        X_centered = X - self.m
+        C = X_centered.transpose() @ X_centered / N  # (D, D)
+
+        S, U = np.linalg.eig(C)
+        order = S.argsort()[::-1]
+        S = S[order] + self.eps
+        U = U[order]
+
+        self.P = np.diag(S ** -0.5) @ U  # (D, D)
+
+    def transform(self, X: np.ndarray, n_components=None):
+        X_whitened = (X - self.m) @ self.P.transpose()
+
+        if n_components is not None:
+            X_whitened = X_whitened[:, :n_components]
+
+        return X_whitened
+
+
 def remove_redundant_keys(state_dict: OrderedDict):
     # remove DataParallel wrapping
     if 'module' in list(state_dict.keys())[0]:

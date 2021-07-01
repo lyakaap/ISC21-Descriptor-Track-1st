@@ -38,14 +38,13 @@ from augly.image import (
     EncodingQuality,
     OverlayOntoScreenshot,
     RandomBlur,
-    RandomBrightness,
     RandomEmojiOverlay,
     RandomPixelization,
-    Saturation,
     ShufflePixels,
     OneOf,
 )
 
+warnings.simplefilter('ignore', UserWarning)
 ver = __file__.replace('.py', '')
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
@@ -102,6 +101,7 @@ parser.add_argument('--input-size', default=224, type=int)
 parser.add_argument('--sample-size', default=100000, type=int)
 parser.add_argument('--weight', type=str)
 parser.add_argument('--eval-subset', action='store_true')
+parser.add_argument('--memory-size', default=1024, type=int)
 
 
 def gem(x, p=3, eps=1e-6):
@@ -331,6 +331,7 @@ def main_worker(gpu, ngpus_per_node, args):
         raise NotImplementedError("Only DistributedDataParallel is supported.")
 
     loss_fn = losses.ContrastiveLoss(pos_margin=args.pos_margin, neg_margin=args.neg_margin)
+    loss_fn = losses.CrossBatchMemory(loss_fn, embedding_size=256, memory_size=args.memory_size)
     loss_fn = pml_dist.DistributedLossWrapper(loss=loss_fn, device_ids=[args.rank])
     # miner = miners.MultiSimilarityMiner()
     # miner = pml_dist.DistributedMinerWrapper(miner=miner)
@@ -378,7 +379,7 @@ def main_worker(gpu, ngpus_per_node, args):
         transforms.RandomResizedCrop(args.input_size, scale=(0.5, 1.)),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        transforms.Normalize(mean=backbone.default_cfg['mean'], std=backbone.default_cfg['std'])
     ]
 
     overlay1 = OverlayOntoScreenshot()
@@ -387,8 +388,6 @@ def main_worker(gpu, ngpus_per_node, args):
         OneOf([overlay1, overlay2], p=0.01),
         transforms.RandomResizedCrop(args.input_size, scale=(0.2, 1.)),
         transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8),
-        Saturation(factor=2.0, p=0.2),
-        RandomBrightness(min_factor=0.5, max_factor=1.5, p=0.2),
         RandomPixelization(p=0.2),
         ShufflePixels(factor=0.1, p=0.2),
         OneOf([EncodingQuality(quality=q) for q in [10, 20, 30, 50]], p=0.5),
@@ -402,7 +401,7 @@ def main_worker(gpu, ngpus_per_node, args):
         convert2rgb,
         transforms.ToTensor(),
         transforms.RandomErasing(value='random', p=0.2),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        transforms.Normalize(mean=backbone.default_cfg['mean'], std=backbone.default_cfg['std']),
     ]
 
     train_paths = list(Path(args.data).glob('**/*.jpg'))[:args.sample_size]
@@ -507,7 +506,7 @@ def extract(args):
         transforms.Resize(args.input_size + 32),
         transforms.CenterCrop(args.input_size),
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        transforms.Normalize(mean=backbone.default_cfg['mean'], std=backbone.default_cfg['std'])
     ]
 
     datasets = {
@@ -585,8 +584,6 @@ def adjust_learning_rate(optimizer, init_lr, epoch, args):
 
 
 if __name__ == '__main__':
-    warnings.simplefilter('ignore', UserWarning)
-
     if not Path(f'{ver}/train').exists():
         Path(f'{ver}/train').mkdir(parents=True)
     if not Path(f'{ver}/extract').exists():

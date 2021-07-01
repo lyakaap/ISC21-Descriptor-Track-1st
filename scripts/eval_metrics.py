@@ -171,11 +171,12 @@ def search_with_capped_res(xq: np.ndarray, xb: np.ndarray, num_results: int):
     """Searches xq (queries) into xb (reference), with a maximum total number of results."""
     import faiss
     from faiss.contrib import exhaustive_search
+    import torch
 
     index = faiss.IndexFlatL2(xb.shape[1])
     index.add(xb)
 
-    ngpu = -1 if xb.shape[1] <= 2048 else 0
+    ngpu = -1 if xb.shape[1] <= 2048 and 'A100' not in torch.cuda.get_device_name() else 0
     radius, lims, dis, ids = exhaustive_search.range_search_max_results(
         index,
         query_iterator(xq),
@@ -290,6 +291,7 @@ def main(
     else:
         query, reference, query_ids, reference_ids = load_descriptor_h5(submission_path)
         submission_df = get_matching_from_descs(query, reference, query_ids, reference_ids, gt_df)
+        submission_df.to_csv(submission_path.parent / (submission_path.stem + '.csv'), index=False)
 
     ap, rp90 = evaluate_metrics(submission_df, gt_df)
 
