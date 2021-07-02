@@ -181,11 +181,11 @@ python v23.py \
   --batch-size 128 --ncrops 2 \
   --gem-p 3.0 --gem-eval-p 5.0 \
   --pos-margin 0.0 --neg-margin 1.1 \
-  --input-size 480 --sample-size 1000000 --memory-size 10000 \
+  --input-size 448 --sample-size 1000000 --memory-size 10000 \
   --weight ./v19m/train/checkpoint_0004.pth.tar \
   ../input/training_images/
 for epoch in `seq 0 4`; do
-  python v23.py -a tf_efficientnetv2_m_in21k --batch-size 256 --mode extract --gem-p 3.0 --gem-eval-p 5.0 --weight ./v23/train/checkpoint_000${epoch}.pth.tar --input-size 480 --eval-subset ../input/
+  python v23.py -a tf_efficientnetv2_m_in21k --batch-size 256 --mode extract --gem-p 3.0 --gem-eval-p 5.0 --weight ./v23/train/checkpoint_000${epoch}.pth.tar --input-size 448 --eval-subset ../input/
 done
 python v23.py \
   -a tf_efficientnetv2_m_in21k \
@@ -193,7 +193,7 @@ python v23.py \
   --mode extract --target-set qrt \
   --gem-p 3.0 --gem-eval-p 5.0 \
   --weight ./v23/train/checkpoint_0004.pth.tar \
-  --input-size 480 \
+  --input-size 448 \
   ../input/
 
 python ../scripts/eval_metrics.py v2/extract/fb-isc-submission.h5 ../input/public_ground_truth.csv

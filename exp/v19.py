@@ -547,7 +547,8 @@ def extract(args):
             f.create_dataset('query_ids', data=query_ids)
             f.create_dataset('reference_ids', data=reference_ids)
 
-        subprocess.run(f'python ../scripts/eval_metrics.py {ver}/extract/fb-isc-submission.h5 ../input/public_ground_truth.csv', shell=True)
+        ngpu = -1 if 'A100' not in torch.cuda.get_device_name() else 0
+        subprocess.run(f'python ../scripts/eval_metrics.py {ver}/extract/fb-isc-submission.h5 ../input/public_ground_truth.csv --ngpu {ngpu}', shell=True)
 
     if 't' in args.target_set:
         train_feats = calc_feats(data_loaders['train'])
