@@ -167,7 +167,7 @@ def query_iterator(xq: np.ndarray):
         i += len(xqi)
 
 
-def search_with_capped_res(xq: np.ndarray, xb: np.ndarray, num_results: int):
+def search_with_capped_res(xq: np.ndarray, xb: np.ndarray, num_results: int, ngpu: int):
     """Searches xq (queries) into xb (reference), with a maximum total number of results."""
     import faiss
     from faiss.contrib import exhaustive_search
@@ -175,8 +175,7 @@ def search_with_capped_res(xq: np.ndarray, xb: np.ndarray, num_results: int):
     index = faiss.IndexFlatL2(xb.shape[1])
     index.add(xb)
 
-    # torchをimportするとなぜかバグる
-    ngpu = -1# if xb.shape[1] <= 2048 and 'A100' not in torch.cuda.get_device_name() else 0
+    # torchをimportするとなぜかバグるので注意
     radius, lims, dis, ids = exhaustive_search.range_search_max_results(
         index,
         query_iterator(xq),
@@ -209,6 +208,7 @@ def get_matching_from_descs(
     query_ids: List[str],
     reference_ids: List[str],
     gt_df: pd.DataFrame,
+    ngpu: int,
 ) -> pd.DataFrame:
     """
     Conduct similarity search and convert results and distances into matching submission format.
@@ -236,7 +236,7 @@ def get_matching_from_descs(
     query = query[query_gt_mask]
 
     nq = len(query)
-    lims, dis, ids = search_with_capped_res(query, reference, num_results=nq * 10)
+    lims, dis, ids = search_with_capped_res(query, reference, num_results=nq * 10, ngpu=ngpu)
 
     matching_submission_df = pd.DataFrame(
         {"query_id": query_ids[i], "reference_id": reference_ids[ids[j]], "score": -dis[j]}
@@ -269,6 +269,10 @@ def main(
         help="Indicate which competition track that the submission file is for. "
         "By default, will infer from file extension.",
     ),
+    ngpu: Optional[int] = typer.Option(
+        -1,
+        "--ngpu",
+    ),
 ):
     """Evaluate competition metrics for a submission to the Facebook AI Image Similarity
     Challenge. Note that this script does not contain any of the input validation on submission
@@ -290,7 +294,7 @@ def main(
         submission_df = pd.read_csv(submission_path)
     else:
         query, reference, query_ids, reference_ids = load_descriptor_h5(submission_path)
-        submission_df = get_matching_from_descs(query, reference, query_ids, reference_ids, gt_df)
+        submission_df = get_matching_from_descs(query, reference, query_ids, reference_ids, gt_df, ngpu)
         submission_df.to_csv(submission_path.parent / (submission_path.stem + '.csv'), index=False)
 
     ap, rp90 = evaluate_metrics(submission_df, gt_df)
