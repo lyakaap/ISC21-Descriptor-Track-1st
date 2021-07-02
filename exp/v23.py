@@ -294,6 +294,14 @@ def main_worker(gpu, ngpus_per_node, args):
     backbone = timm.create_model(args.arch, features_only=True, pretrained=True)
     model = ISCNet(backbone, p=args.gem_p, eval_p=args.gem_eval_p)
 
+    if args.weight is not None:
+        state_dict = torch.load(args.weight, map_location='cpu')['state_dict']
+        for k in list(state_dict.keys()):
+            if k.startswith('module.'):
+                state_dict[k[len('module.'):]] = state_dict[k]
+                del state_dict[k]
+        model.load_state_dict(state_dict, strict=False)
+
     # infer learning rate before changing batch size
     init_lr = args.lr# * args.batch_size / 256
 
@@ -370,7 +378,7 @@ def main_worker(gpu, ngpus_per_node, args):
     cudnn.benchmark = True
 
     aug_moderate = [
-        transforms.RandomResizedCrop(args.input_size, scale=(0.5, 1.)),
+        transforms.RandomResizedCrop(args.input_size, scale=(0.4, 1.)),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize(mean=backbone.default_cfg['mean'], std=backbone.default_cfg['std'])
@@ -382,19 +390,19 @@ def main_worker(gpu, ngpus_per_node, args):
         OneOf([overlay1, overlay2], p=0.01),
         transforms.RandomResizedCrop(args.input_size, scale=(0.2, 1.)),
         transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8),
-        RandomPixelization(p=0.2),
-        ShufflePixels(factor=0.1, p=0.2),
+        RandomPixelization(p=0.25),
+        ShufflePixels(factor=0.1, p=0.25),
         OneOf([EncodingQuality(quality=q) for q in [10, 20, 30, 50]], p=0.5),
-        transforms.RandomGrayscale(p=0.2),
-        RandomBlur(p=0.2),
-        transforms.RandomPerspective(p=0.2),
+        transforms.RandomGrayscale(p=0.25),
+        RandomBlur(p=0.25),
+        transforms.RandomPerspective(p=0.25),
         transforms.RandomHorizontalFlip(p=0.5),
-        transforms.RandomVerticalFlip(p=0.2),
-        RandomOverlayText(p=0.2),
-        RandomEmojiOverlay(p=0.2),
+        transforms.RandomVerticalFlip(p=0.25),
+        RandomOverlayText(p=0.25),
+        RandomEmojiOverlay(p=0.25),
         convert2rgb,
         transforms.ToTensor(),
-        transforms.RandomErasing(value='random', p=0.2),
+        transforms.RandomErasing(value='random', p=0.25),
         transforms.Normalize(mean=backbone.default_cfg['mean'], std=backbone.default_cfg['std']),
     ]
 
