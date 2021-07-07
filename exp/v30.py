@@ -399,7 +399,6 @@ def main_worker(gpu, ngpus_per_node, args):
         OneOf([EncodingQuality(quality=q) for q in [10, 20, 30, 50]], p=0.5),
         transforms.RandomGrayscale(p=0.2),
         RandomBlur(p=0.2),
-        RandomRotation(p=0.2),
         transforms.RandomPerspective(p=0.2),
         transforms.RandomHorizontalFlip(p=0.5),
         transforms.RandomVerticalFlip(p=0.2),
@@ -407,6 +406,7 @@ def main_worker(gpu, ngpus_per_node, args):
         RandomEmojiOverlay(p=0.2),
     ]
     aug_hard = [
+        RandomRotation(p=0.2),
         OneOf([overlay1, overlay2], p=0.01),
         transforms.RandomResizedCrop(args.input_size, scale=(0.2, 1.)),
         ShuffledAug(aug_list),
