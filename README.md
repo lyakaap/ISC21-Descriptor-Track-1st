@@ -31,6 +31,7 @@
 - v27: eff-l, tuned, 10epoch
 - v28: schedulerをiterごとにstep
 - v29: RAっぽく
+- v30: + RandomRotation
 
 
 python v19.py \
