@@ -28,7 +28,9 @@
 - v24: neg_margin=1.0
 - v25: swin
 - v26: data aug 強め
-- v27: lr調整
+- v27: eff-l, tuned, 10epoch
+- v28: schedulerをiterごとにstep
+- v29: RAっぽく
 
 
 python v19.py \
@@ -165,16 +167,16 @@ done
 python v27.py \
   -a tf_efficientnetv2_l_in21k \
   --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 7 \
-  --epochs 5 \
-  --lr 0.35 --wd 1e-6 \
-  --batch-size 128 --ncrops 2 \
+  --epochs 10 \
+  --lr 0.2 --wd 1e-6 \
+  --batch-size 192 --ncrops 2 \
   --gem-p 3.0 --gem-eval-p 5.0 \
   --pos-margin 0.0 --neg-margin 1.0 \
   --input-size 256 --sample-size 1000000 --memory-size 10000 \
   ../input/training_images/
 python v27.py \
   -a tf_efficientnetv2_l_in21k \
-  --batch-size 256 \
+  --batch-size 512 \
   --mode extract --target-set qrt \
   --gem-p 3.0 --gem-eval-p 5.0 \
   --weight ./v27/train/checkpoint_0004.pth.tar \
@@ -210,104 +212,19 @@ v23
   "average_precision": 0.4780176024970843,
   "recall_p90": 0.3129633340012022
 }
+v23 w/ embedding isolation
+{
+  "average_precision": 0.5565125454217211,
+  "recall_p90": 0.46924464035263475
+}
+v23 w/ norm
+{
+  "average_precision": 0.5564276273733336,
+  "recall_p90": 0.4738529352835103
+}
 ---------------------------------------------------------------
 
-{
-  "average_precision": 0.4242279033736717,
-  "recall_p90": 0.29252654778601483
-}
-python v8.py \
-  -a dm_nfnet_f0 \
-  --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 \
-  --epochs 1 \
-  --lr 0.01 --wd 1e-5 \
-  --batch-size 64 --ncrops 2 \
-  --gem-p 3.0 --gem-eval-p 4.0 \
-  --pos-margin 0.0 --neg-margin 1.1 \
-  --input-size 320 --sample-size 100000 \
-  ../train_subset
 
-{
-  "average_precision": 0.4604716294783043,
-  "recall_p90": 0.33099579242636745
-}
-python v10.py \
-  -a dm_nfnet_f0 \
-  --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 \
-  --epochs 1 \
-  --lr 0.01 --wd 1e-5 \
-  --batch-size 64 --ncrops 2 \
-  --gem-p 3.0 --gem-eval-p 5.0 \
-  --pos-margin 0.0 --neg-margin 1.1 \
-  --input-size 320 --sample-size 100000 --memory-size 4096 \
-  ../train_subset
-
-{
-  "average_precision": 0.45031799005000156,
-  "recall_p90": 0.2785013023442196
-}
-python v10.py \
-  -a dm_nfnet_f0 \
-  --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 \
-  --epochs 1 \
-  --lr 0.01 --wd 1e-5 \
-  --batch-size 64 --ncrops 2 \
-  --gem-p 3.0 --gem-eval-p 5.0 \
-  --pos-margin 0.0 --neg-margin 1.1 \
-  --input-size 256 --sample-size 100000 --memory-size 4096 \
-  ../train_subset
-
-{
-  "average_precision": 0.49208326754843634,
-  "recall_p90": 0.3698657583650571
-}
-python v18.py \
-  -a tf_efficientnetv2_s_in21k \
-  --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 7 \
-  --epochs 1 \
-  --lr 0.1 --wd 1e-5 \
-  --batch-size 64 --ncrops 2 \
-  --gem-p 3.0 --gem-eval-p 5.0 \
-  --pos-margin 0.0 --neg-margin 1.1 \
-  --input-size 256 --sample-size 100000 --memory-size 4096 \
-  ../train_subset
-
-{
-  "average_precision": 0.4996100416157455,
-  "recall_p90": 0.3742736926467642
-}
-python v19.py \
-  -a tf_efficientnetv2_m_in21k \
-  --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 7 \
-  --epochs 1 \
-  --lr 0.1 --wd 1e-5 \
-  --batch-size 64 --ncrops 2 \
-  --gem-p 3.0 --gem-eval-p 5.0 \
-  --pos-margin 0.0 --neg-margin 1.1 \
-  --input-size 256 --sample-size 100000 --memory-size 4096 \
-  ../input/training_images/
-
-eff
-{
-  "average_precision": 0.4574111312254072,
-  "recall_p90": 0.32919254658385094
-}
-{
-  "average_precision": 0.49031745636019775,
-  "recall_p90": 0.3696653977158886
-}
-{
-  "average_precision": 0.5014965338316312,
-  "recall_p90": 0.38068523342015625
-}
-{
-  "average_precision": 0.5051015215892052,
-  "recall_p90": 0.3816870366659988
-}
-{
-  "average_precision": 0.5059337166831631,
-  "recall_p90": 0.38088559406932476
-}
 
 ## ref
 https://github.com/TengdaHan/ShuffleBN

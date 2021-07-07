@@ -18,66 +18,39 @@ def load_descriptor_h5(descs_submission_path):
 
 submission_path = 'v23/extract/fb-isc-submission.h5'
 query, reference, query_ids, reference_ids = load_descriptor_h5(submission_path)
-
-index = faiss.IndexFlatL2(reference.shape[1])
-ngpu = faiss.get_num_gpus()
-co = faiss.GpuMultipleClonerOptions()
-co.shard = False
-index_gpu = faiss.index_cpu_to_all_gpus(index, co=co, ngpu=ngpu)
-index_gpu.add(reference)
-reference_dist, reference_ind = index_gpu.search(query, k=10)
-
-submission = pd.DataFrame(columns=['query_id', 'reference_id', 'score'])
-submission['query_id'] = np.repeat(query_ids, 10)
-submission['reference_id'] = np.array(reference_ids)[reference_ind.ravel()]
-submission['score'] = - reference_dist.ravel()
-
 train = np.load('v23/extract/train_feats.npy')
 
-index = faiss.IndexFlatL2(train.shape[1])
+
+index_train = faiss.IndexFlatIP(train.shape[1])
 ngpu = faiss.get_num_gpus()
 co = faiss.GpuMultipleClonerOptions()
 co.shard = False
-index_gpu = faiss.index_cpu_to_all_gpus(index, co=co, ngpu=ngpu)
-index_gpu.add(train)
-train_dist, train_ind = index_gpu.search(query, k=100)
+index_train = faiss.index_cpu_to_all_gpus(index_train, co=co, ngpu=ngpu)
+index_train.add(train)
 
-# matching track
-beta = 1.0
-tn = 3
-s = - train_dist[:, :tn].mean(axis=1) * beta
+def embedding_isolation(embedding, train, index, beta, k, num_iter):
+    for _ in range(num_iter):
+        _, ind = index.search(embedding, k=k)
+        embedding = embedding - (train[ind[:, :k]].mean(axis=1) * beta)
+        embedding /= np.linalg.norm(embedding, axis=1, keepdims=True)
+    return embedding.astype('float32')
 
-# submission = pd.read_csv(submission_path.replace('.h5', '.csv'))
-query_ind = submission['query_id'].map(lambda x: x[1:]).astype(int).values
-submission['score'] -= s[query_ind]
-submission.to_csv('v23/extract/tmp.csv', index=False)
-
-
-# reverse query expansion
-index = faiss.IndexFlatIP(train.shape[1])
-ngpu = faiss.get_num_gpus()
-co = faiss.GpuMultipleClonerOptions()
-co.shard = False
-index_gpu = faiss.index_cpu_to_all_gpus(index, co=co, ngpu=ngpu)
-index_gpu.add(train)
-query_train_sim, query_train_ind = index_gpu.search(query, k=30)
-reference_train_sim, reference_train_ind = index_gpu.search(reference, k=30)
-
+num_iter = 3
 beta = 0.35
 k = 10
-_query = query - (train[query_train_ind[:, :k]].mean(axis=1) * beta)
-# _query = query - (train[query_train_ind[:, :k]] * (query_train_sim[:, :k, None] ** alpha)).mean(axis=1) * beta
-_query /= np.linalg.norm(query, axis=1, keepdims=True)
-_reference = reference - train[reference_train_ind[:, :k]].mean(axis=1) * beta
-_reference /= np.linalg.norm(reference, axis=1, keepdims=True)
 
-index = faiss.IndexFlatL2(_reference.shape[1])
+_query = query
+_reference = reference
+_query = embedding_isolation(_query, train, index_train, beta, k, num_iter)
+_reference = embedding_isolation(_reference, train, index_train, beta, k, num_iter)
+
+index_reference = faiss.IndexFlatL2(_reference.shape[1])
 ngpu = faiss.get_num_gpus()
 co = faiss.GpuMultipleClonerOptions()
 co.shard = False
-index_gpu = faiss.index_cpu_to_all_gpus(index, co=co, ngpu=ngpu)
-index_gpu.add(_reference)
-reference_dist, reference_ind = index_gpu.search(_query, k=10)
+index_reference = faiss.index_cpu_to_all_gpus(index_reference, co=co, ngpu=ngpu)
+index_reference.add(_reference)
+reference_dist, reference_ind = index_reference.search(_query, k=10)
 
 submission = pd.DataFrame(columns=['query_id', 'reference_id', 'score'])
 submission['query_id'] = np.repeat(query_ids, 10)
@@ -91,3 +64,21 @@ with h5py.File(out, 'w') as f:
     f.create_dataset('reference', data=_reference)
     f.create_dataset('query_ids', data=np.array(query_ids, dtype='S6'))
     f.create_dataset('reference_ids', data=np.array(reference_ids, dtype='S7'))
+
+
+beta = 0.5
+tn = 3
+query_train_sim, query_train_ind = index_train.search(_query, tn)
+# reference_train_sim, reference_train_ind = index_train.search(_reference, tn)
+sq = query_train_sim[:, :tn].mean(axis=1)
+# sr = reference_train_sim[:, :tn].mean(axis=1)
+
+submission = pd.DataFrame(columns=['query_id', 'reference_id', 'score'])
+submission['query_id'] = np.repeat(query_ids, 10)
+submission['reference_id'] = np.array(reference_ids)[reference_ind.ravel()]
+submission['score'] = - reference_dist.ravel()
+
+query_ind = submission['query_id'].map(lambda x: x[1:]).astype(int).values
+# reference_ind = submission['reference_id'].map(lambda x: x[1:]).astype(int).values
+submission['score'] -= sq[query_ind]
+submission.to_csv('v23/extract/tmp.csv', index=False)

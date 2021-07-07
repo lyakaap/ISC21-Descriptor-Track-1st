@@ -294,9 +294,6 @@ def main_worker(gpu, ngpus_per_node, args):
     backbone = timm.create_model(args.arch, features_only=True, pretrained=True)
     model = ISCNet(backbone, p=args.gem_p, eval_p=args.gem_eval_p)
 
-    # infer learning rate before changing batch size
-    init_lr = args.lr# * args.batch_size / 256
-
     if args.distributed:
         # Apply SyncBN
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
@@ -346,7 +343,7 @@ def main_worker(gpu, ngpus_per_node, args):
         {'params': decay, 'weight_decay': args.weight_decay}
     ]
 
-    optimizer = torch.optim.SGD(optim_params, init_lr, momentum=args.momentum)
+    optimizer = torch.optim.SGD(optim_params, args.lr, momentum=args.momentum)
     scaler = torch.cuda.amp.GradScaler()
 
     # optionally resume from a checkpoint
@@ -420,7 +417,6 @@ def main_worker(gpu, ngpus_per_node, args):
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
             train_sampler.set_epoch(epoch)
-        adjust_learning_rate(optimizer, init_lr, epoch, args)
 
         train_one_epoch(train_loader, model, loss_fn, optimizer, scaler, epoch, args)
 
@@ -441,7 +437,9 @@ def train_one_epoch(train_loader, model, loss_fn, optimizer, scaler, epoch, args
 
     model.train()
 
-    for labels, images in progress:
+    for itr, (labels, images) in enumerate(progress):
+        adjust_learning_rate(optimizer, epoch, itr, len(train_loader), args)
+
         optimizer.zero_grad()
 
         labels = labels.cuda(args.gpu, non_blocking=True)
@@ -461,7 +459,7 @@ def train_one_epoch(train_loader, model, loss_fn, optimizer, scaler, epoch, args
         scaler.update()
 
         progress.set_postfix(loss=losses.avg)
-    
+
     print(f'epoch={epoch}, loss={losses.avg}')
 
 
@@ -548,7 +546,8 @@ def extract(args):
             f.create_dataset('reference_ids', data=reference_ids)
 
         ngpu = -1 if 'A100' not in torch.cuda.get_device_name() else 0
-        subprocess.run(f'python ../scripts/eval_metrics.py {ver}/extract/fb-isc-submission.h5 ../input/public_ground_truth.csv --ngpu {ngpu}', shell=True)
+        subprocess.run(
+            f'python ../scripts/eval_metrics.py {ver}/extract/fb-isc-submission.h5 ../input/public_ground_truth.csv --ngpu {ngpu}', shell=True)
 
     if 't' in args.target_set:
         train_feats = calc_feats(data_loaders['train'])
@@ -586,12 +585,13 @@ class AverageMeter(object):
         return fmtstr.format(**self.__dict__)
 
 
-def adjust_learning_rate(optimizer, init_lr, epoch, args):
+def adjust_learning_rate(optimizer, epoch, itr, steps_per_epoch, args):
     """Decay the learning rate based on schedule"""
-    cur_lr = init_lr * 0.5 * (1. + math.cos(math.pi * epoch / args.epochs))
+    factor = (epoch * steps_per_epoch + itr) / (args.epochs * steps_per_epoch)
+    cur_lr = args.lr * 0.5 * (1. + math.cos(math.pi * factor))
     for param_group in optimizer.param_groups:
         if 'fix_lr' in param_group and param_group['fix_lr']:
-            param_group['lr'] = init_lr
+            param_group['lr'] = args.lr
         else:
             param_group['lr'] = cur_lr
 
