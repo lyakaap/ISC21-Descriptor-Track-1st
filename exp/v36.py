@@ -308,6 +308,14 @@ def main_worker(gpu, ngpus_per_node, args):
     backbone = timm.create_model(args.arch, features_only=True, pretrained=True)
     model = ISCNet(backbone, p=args.gem_p, eval_p=args.gem_eval_p)
 
+    if args.weight is not None:
+        state_dict = torch.load(args.weight, map_location='cpu')['state_dict']
+        for k in list(state_dict.keys()):
+            if k.startswith('module.'):
+                state_dict[k[len('module.'):]] = state_dict[k]
+                del state_dict[k]
+        model.load_state_dict(state_dict, strict=False)
+
     # infer learning rate before changing batch size
     init_lr = args.lr# * args.batch_size / 256
 

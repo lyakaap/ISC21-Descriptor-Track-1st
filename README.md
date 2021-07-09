@@ -195,10 +195,10 @@ python v36.py \
   -a tf_efficientnetv2_l_in21k \
   --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 77 \
   --epochs 5 \
-  --lr 0.01 --wd 1e-5 \
-  --batch-size 128 --ncrops 2 \
+  --lr 0.01 --wd 1e-6 \
+  --batch-size 96 --ncrops 2 \
   --gem-p 3.0 --gem-eval-p 5.0 \
-  --pos-margin 0.0 --neg-margin 1.1 \
+  --pos-margin 0.0 --neg-margin 1.0 \
   --input-size 384 --sample-size 1000000 --memory-size 10000 \
   --weight ./v31/train/checkpoint_0004.pth.tar \
   ../input/training_images/
