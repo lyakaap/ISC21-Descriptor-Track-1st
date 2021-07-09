@@ -32,6 +32,8 @@
 - v28: schedulerをiterごとにstep
 - v29: RAっぽく
 - v30: + RandomRotation
+- v31: v30 + linear
+- v32: v31 + overlay image
 
 
 python v19.py \
@@ -183,6 +185,17 @@ python v27.py \
   --weight ./v27/train/checkpoint_0004.pth.tar \
   --input-size 256 \
   ../input/
+
+python v31.py \
+  -a tf_efficientnetv2_l_in21k \
+  --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 7 \
+  --epochs 5 \
+  --lr 0.1 --wd 1e-6 \
+  --batch-size 192 --ncrops 2 \
+  --gem-p 3.0 --gem-eval-p 5.0 \
+  --pos-margin 0.0 --neg-margin 1.0 \
+  --input-size 256 --sample-size 1000000 --memory-size 10000 \
+  ../input/training_images/
 
 python ../scripts/eval_metrics.py v2/extract/fb-isc-submission.h5 ../input/public_ground_truth.csv
 
