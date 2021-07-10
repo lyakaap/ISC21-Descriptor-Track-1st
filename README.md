@@ -37,7 +37,8 @@
 - v33: v31 + swin
 - v34: v30 + linear, eff-m
 - v35: v30 + linear, eff-s, bs=64
-- v36: v31のつづき、res=, lr-0.01から、aug少し激しく
+- v36: v31のつづき、res=, lr=0.01から、aug少し激しく
+- v37: v36, lr=0.05から
 
 python v19.py \
   -a tf_efficientnetv2_s_in21k \
@@ -214,6 +215,32 @@ python v36.py \
   --mode extract --target-set qrt \
   --gem-p 3.0 --gem-eval-p 5.0 \
   --weight ./v36/train/checkpoint_0004.pth.tar \
+  --input-size 384 \
+  ../input/
+
+python v37.py \
+  -a tf_efficientnetv2_l_in21k \
+  --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 77 \
+  --epochs 5 \
+  --lr 0.05 --wd 1e-6 \
+  --batch-size 96 --ncrops 2 \
+  --gem-p 3.0 --gem-eval-p 5.0 \
+  --pos-margin 0.0 --neg-margin 1.0 \
+  --input-size 384 --sample-size 1000000 --memory-size 10000 \
+  --weight ./v31/train/checkpoint_0004.pth.tar \
+  ../input/training_images/
+gsutil -m cp -r v37 gs://fbisc/exp/
+sudo shutdown
+
+for epoch in `seq 0 4`; do
+  python v37.py -a tf_efficientnetv2_l_in21k --batch-size 256 --mode extract --gem-p 3.0 --gem-eval-p 5.0 --weight ./v37/train/checkpoint_000${epoch}.pth.tar --input-size 384 --eval-subset ../input/
+done
+python v37.py \
+  -a tf_efficientnetv2_l_in21k \
+  --batch-size 256 \
+  --mode extract --target-set qrt \
+  --gem-p 3.0 --gem-eval-p 5.0 \
+  --weight ./v37/train/checkpoint_0004.pth.tar \
   --input-size 384 \
   ../input/
 
