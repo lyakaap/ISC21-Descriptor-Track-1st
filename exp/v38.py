@@ -40,6 +40,7 @@ from augly.image import (
     RandomBlur,
     RandomEmojiOverlay,
     RandomPixelization,
+    RandomRotation,
     ShufflePixels,
     OneOf,
 )
@@ -233,6 +234,19 @@ class RandomEmojiOverlay(BaseTransform):
         )
 
 
+class ShuffledAug:
+
+    def __init__(self, aug_list):
+        self.aug_list = aug_list
+    
+    def __call__(self, x):
+        # without replacement
+        shuffled_aug_list = random.sample(self.aug_list, len(self.aug_list))
+        for op in shuffled_aug_list:
+            x = op(x)
+        return x
+
+
 def convert2rgb(x):
     return x.convert('RGB')
 
@@ -293,6 +307,14 @@ def main_worker(gpu, ngpus_per_node, args):
 
     backbone = timm.create_model(args.arch, features_only=True, pretrained=True)
     model = ISCNet(backbone, p=args.gem_p, eval_p=args.gem_eval_p)
+
+    if args.weight is not None:
+        state_dict = torch.load(args.weight, map_location='cpu')['state_dict']
+        for k in list(state_dict.keys()):
+            if k.startswith('module.'):
+                state_dict[k[len('module.'):]] = state_dict[k]
+                del state_dict[k]
+        model.load_state_dict(state_dict, strict=False)
 
     # infer learning rate before changing batch size
     init_lr = args.lr# * args.batch_size / 256
@@ -370,7 +392,7 @@ def main_worker(gpu, ngpus_per_node, args):
     cudnn.benchmark = True
 
     aug_moderate = [
-        transforms.RandomResizedCrop(args.input_size, scale=(0.5, 1.)),
+        transforms.RandomResizedCrop(args.input_size, scale=(0.4, 1.)),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize(mean=backbone.default_cfg['mean'], std=backbone.default_cfg['std'])
@@ -378,23 +400,27 @@ def main_worker(gpu, ngpus_per_node, args):
 
     overlay1 = OverlayOntoScreenshot()
     overlay2 = OverlayOntoScreenshot(template_filepath=overlay1.template_filepath.replace('web', 'mobile'))
+    aug_list = [
+        transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8),
+        RandomPixelization(p=0.35),
+        ShufflePixels(factor=0.1, p=0.35),
+        OneOf([EncodingQuality(quality=q) for q in [10, 20, 30, 50]], p=0.5),
+        transforms.RandomGrayscale(p=0.35),
+        RandomBlur(p=0.35),
+        transforms.RandomPerspective(p=0.35),
+        transforms.RandomHorizontalFlip(p=0.5),
+        transforms.RandomVerticalFlip(p=0.35),
+        RandomOverlayText(p=0.35),
+        RandomEmojiOverlay(p=0.35),
+    ]
     aug_hard = [
+        RandomRotation(p=0.35),
         OneOf([overlay1, overlay2], p=0.01),
         transforms.RandomResizedCrop(args.input_size, scale=(0.2, 1.)),
-        transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8),
-        RandomPixelization(p=0.2),
-        ShufflePixels(factor=0.1, p=0.2),
-        OneOf([EncodingQuality(quality=q) for q in [10, 20, 30, 50]], p=0.5),
-        transforms.RandomGrayscale(p=0.2),
-        RandomBlur(p=0.2),
-        transforms.RandomPerspective(p=0.2),
-        transforms.RandomHorizontalFlip(p=0.5),
-        transforms.RandomVerticalFlip(p=0.2),
-        RandomOverlayText(p=0.2),
-        RandomEmojiOverlay(p=0.2),
+        ShuffledAug(aug_list),
         convert2rgb,
         transforms.ToTensor(),
-        transforms.RandomErasing(value='random', p=0.2),
+        transforms.RandomErasing(value='random', p=0.35),
         transforms.Normalize(mean=backbone.default_cfg['mean'], std=backbone.default_cfg['std']),
     ]
 
@@ -588,7 +614,7 @@ class AverageMeter(object):
 
 def adjust_learning_rate(optimizer, init_lr, epoch, args):
     """Decay the learning rate based on schedule"""
-    cur_lr = init_lr * 0.5 * (1. + math.cos(math.pi * epoch / args.epochs))
+    cur_lr = init_lr * (1 - (epoch / args.epochs))
     for param_group in optimizer.param_groups:
         if 'fix_lr' in param_group and param_group['fix_lr']:
             param_group['lr'] = init_lr

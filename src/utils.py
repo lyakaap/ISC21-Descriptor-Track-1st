@@ -1,3 +1,4 @@
+from sklearn.decomposition import PCA
 import json
 import logging
 import random
@@ -74,6 +75,19 @@ class WhiteningPCA:
             X_whitened = X_whitened[:, :n_components]
 
         return X_whitened
+
+
+def apply_whitening_pca(X, n_components=None):
+    pca = PCA(whiten=True)
+    pca.fit(X)
+    m = pca.mean_
+    P = pca.components_.T / np.sqrt(pca.explained_variance_)
+
+    X_whitened = (X - m) @ P.transpose()
+    if n_components is not None:
+        X_whitened = X_whitened[:, :n_components]
+
+    return X_whitened
 
 
 def remove_redundant_keys(state_dict: OrderedDict):
