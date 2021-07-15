@@ -16,9 +16,9 @@ def load_descriptor_h5(descs_submission_path):
     return query, reference, query_ids, reference_ids
 
 
-submission_path = 'v36/extract/fb-isc-submission.h5'
+submission_path = 'v38/extract/fb-isc-submission.h5'
 query, reference, query_ids, reference_ids = load_descriptor_h5(submission_path)
-train = np.load('v36/extract/train_feats.npy')
+train = np.load('v38/extract/train_feats.npy')
 
 
 index_train = faiss.IndexFlatIP(train.shape[1])
@@ -56,9 +56,9 @@ submission = pd.DataFrame(columns=['query_id', 'reference_id', 'score'])
 submission['query_id'] = np.repeat(query_ids, 10)
 submission['reference_id'] = np.array(reference_ids)[reference_ind.ravel()]
 submission['score'] = - reference_dist.ravel()
-submission.to_csv('v36/extract/tmp.csv', index=False)
+submission.to_csv('v38/extract/tmp.csv', index=False)
 
-out = f'v36/extract/tmp.h5'
+out = f'v38/extract/tmp.h5'
 with h5py.File(out, 'w') as f:
     f.create_dataset('query', data=_query)
     f.create_dataset('reference', data=_reference)
@@ -80,4 +80,4 @@ submission['score'] = - reference_dist.ravel()
 query_ind = submission['query_id'].map(lambda x: x[1:]).astype(int).values
 # reference_ind = submission['reference_id'].map(lambda x: x[1:]).astype(int).values
 submission['score'] -= sq[query_ind] * beta
-submission.to_csv('v36/extract/tmp.csv', index=False)
+submission.to_csv('v38/extract/tmp.csv', index=False)
