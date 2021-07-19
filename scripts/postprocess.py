@@ -16,10 +16,9 @@ def load_descriptor_h5(descs_submission_path):
     return query, reference, query_ids, reference_ids
 
 
-submission_path = 'v38/extract/fb-isc-submission.h5'
+submission_path = 'v58/extract/fb-isc-submission.h5'
 query, reference, query_ids, reference_ids = load_descriptor_h5(submission_path)
-train = np.load('v38/extract/train_feats.npy')
-
+train = np.load('v58/extract/train_feats.npy')
 
 index_train = faiss.IndexFlatIP(train.shape[1])
 ngpu = faiss.get_num_gpus()

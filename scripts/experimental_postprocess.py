@@ -49,3 +49,37 @@ submission['query_id'] = np.repeat(query_ids, 10)
 submission['reference_id'] = np.array(reference_ids)[reference_ind.ravel()]
 submission['score'] = - reference_dist.ravel()
 submission.to_csv('v23/extract/tmp.csv', index=False)
+
+
+# ensemble + SVD
+submission_path = 'v58/extract/fb-isc-submission.h5'
+query2, reference2, query_ids2, reference_ids2 = load_descriptor_h5(submission_path)
+
+query = np.concatenate([query, query2], axis=1)
+query /= np.linalg.norm(query, axis=1, keepdims=True)
+
+reference = np.concatenate([reference, reference2], axis=1)
+reference /= np.linalg.norm(reference, axis=1, keepdims=True)
+
+from sklearn.decomposition import TruncatedSVD
+pca = TruncatedSVD(n_components=256)
+pca.fit(reference)
+reference = pca.transform(reference).astype('float32')
+query = pca.transform(query).astype('float32')
+
+query /= np.linalg.norm(query, axis=1, keepdims=True)
+reference /= np.linalg.norm(reference, axis=1, keepdims=True)
+
+index_reference = faiss.IndexFlatL2(reference.shape[1])
+ngpu = faiss.get_num_gpus()
+co = faiss.GpuMultipleClonerOptions()
+co.shard = False
+index_reference = faiss.index_cpu_to_all_gpus(index_reference, co=co, ngpu=ngpu)
+index_reference.add(reference)
+reference_dist, reference_ind = index_reference.search(query, k=10)
+
+submission = pd.DataFrame(columns=['query_id', 'reference_id', 'score'])
+submission['query_id'] = np.repeat(query_ids, 10)
+submission['reference_id'] = np.array(reference_ids)[reference_ind.ravel()]
+submission['score'] = - reference_dist.ravel()
+submission.to_csv('v58/extract/tmp.csv', index=False)
