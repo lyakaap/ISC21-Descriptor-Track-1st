@@ -67,6 +67,11 @@
 - v63: v58, minerの検証
 - v64: v58, eff-s, bs=64, memory_size=20000
 - v65: v58, memory_size=10000
+- v68: v58のつづき、lr=0.1
+- v69: v58のつづき、lr=0.05
+- v70: v58のつづき、lr=0.01
+- v71: v69のつづき、lr=0.025, bs=64
+- v72: v69のつづき、lr=0.025, bs=128
 
 
 python v31.py \
@@ -617,6 +622,69 @@ v62
   "average_precision": 0.5619927147563503,
   "recall_p90": 0.4241634942897215
 }
+
+lr=0.1から
+python v68.py \
+  -a tf_efficientnetv2_m_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 77 \
+  --epochs 5 --lr 0.1 --wd 1e-6 --batch-size 128 --ncrops 2 \
+  --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.0 --weight ./v58/train/checkpoint_0004.pth.tar \
+  --input-size 384 --sample-size 1000000 --memory-size 20000 \
+  ../input/training_images/
+python v68.py -a tf_efficientnetv2_m_in21ft1k --batch-size 256 --mode extract --gem-eval-p 1.0 --weight ./v68/train/checkpoint_0004.pth.tar --input-size 384 --target-set qrt ../input/
+{
+  "average_precision": 0.6145957668784987,
+  "recall_p90": 0.5221398517331196
+}
+
+lr=0.05から
+python v69.py \
+  -a tf_efficientnetv2_m_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 77 \
+  --epochs 5 --lr 0.05 --wd 1e-6 --batch-size 128 --ncrops 2 \
+  --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.0 --weight ./v58/train/checkpoint_0004.pth.tar \
+  --input-size 384 --sample-size 1000000 --memory-size 20000 \
+  ../input/training_images/
+python v69.py -a tf_efficientnetv2_m_in21ft1k --batch-size 256 --mode extract --gem-eval-p 1.0 --weight ./v69/train/checkpoint_0004.pth.tar --input-size 384 --target-set qrt ../input/
+{
+  "average_precision": 0.6179223783734548,
+  "recall_p90": 0.5231416549789621
+}
+
+lr=0.01から
+python v70.py \
+  -a tf_efficientnetv2_m_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 77 \
+  --epochs 5 --lr 0.01 --wd 1e-6 --batch-size 128 --ncrops 2 \
+  --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.0 --weight ./v58/train/checkpoint_0004.pth.tar \
+  --input-size 384 --sample-size 1000000 --memory-size 20000 \
+  ../input/training_images/
+python v70.py -a tf_efficientnetv2_m_in21ft1k --batch-size 256 --mode extract --gem-eval-p 1.0 --weight ./v70/train/checkpoint_0004.pth.tar --input-size 384 --target-set qrt ../input/
+{
+  "average_precision": 0.6166408668762218,
+  "recall_p90": 0.5125225405730315
+}
+
+python v71.py \
+  -a tf_efficientnetv2_m_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 777 \
+  --epochs 5 --lr 0.025 --wd 1e-6 --batch-size 64 --ncrops 2 \
+  --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.0 --weight ./v69/train/checkpoint_0004.pth.tar \
+  --input-size 512 --sample-size 1000000 --memory-size 20000 \
+  ../input/training_images/
+python v71.py -a tf_efficientnetv2_m_in21ft1k --batch-size 256 --mode extract --gem-eval-p 1.0 --weight ./v71/train/checkpoint_0004.pth.tar --input-size 512 --target-set qrt ../input/
+gsutil -m cp -r v71 gs://fbisc/exp/
+sudo shutdown
+{
+  "average_precision": 0.6182067154392421,
+  "recall_p90": 0.5061109997996394
+}
+
+python v72.py \
+  -a tf_efficientnetv2_m_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 777 \
+  --epochs 5 --lr 0.025 --wd 1e-6 --batch-size 128 --ncrops 2 \
+  --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.0 --weight ./v69/train/checkpoint_0004.pth.tar \
+  --input-size 512 --sample-size 1000000 --memory-size 20000 \
+  ../input/training_images/
+python v72.py -a tf_efficientnetv2_m_in21ft1k --batch-size 256 --mode extract --gem-eval-p 1.0 --weight ./v72/train/checkpoint_0004.pth.tar --input-size 512 --target-set qrt ../input/
+gsutil -m cp -r v72 gs://fbisc/exp/
+sudo shutdown
 
 
 ## ref
