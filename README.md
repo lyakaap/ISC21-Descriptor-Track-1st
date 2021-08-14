@@ -72,6 +72,7 @@
 - v70: v58のつづき、lr=0.01
 - v71: v69のつづき、lr=0.025, bs=64
 - v72: v69のつづき、lr=0.025, bs=128
+- v73: v58, 別seed
 
 
 python v31.py \
@@ -669,8 +670,6 @@ python v71.py \
   --input-size 512 --sample-size 1000000 --memory-size 20000 \
   ../input/training_images/
 python v71.py -a tf_efficientnetv2_m_in21ft1k --batch-size 256 --mode extract --gem-eval-p 1.0 --weight ./v71/train/checkpoint_0004.pth.tar --input-size 512 --target-set qrt ../input/
-gsutil -m cp -r v71 gs://fbisc/exp/
-sudo shutdown
 {
   "average_precision": 0.6182067154392421,
   "recall_p90": 0.5061109997996394
@@ -684,6 +683,20 @@ python v72.py \
   ../input/training_images/
 python v72.py -a tf_efficientnetv2_m_in21ft1k --batch-size 256 --mode extract --gem-eval-p 1.0 --weight ./v72/train/checkpoint_0004.pth.tar --input-size 512 --target-set qrt ../input/
 gsutil -m cp -r v72 gs://fbisc/exp/
+sudo shutdown
+{
+  "average_precision": 0.6247096196560734,
+  "recall_p90": 0.5237427369264677
+}
+
+python v73.py \
+  -a tf_efficientnetv2_m_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 6 \
+  --epochs 5 --lr 0.1 --wd 1e-6 --batch-size 128 --ncrops 2 \
+  --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.0 \
+  --input-size 256 --sample-size 1000000 --memory-size 20000 \
+  ../input/training_images/
+python v73.py -a tf_efficientnetv2_m_in21ft1k --batch-size 256 --mode extract --gem-eval-p 1.0 --weight ./v73/train/checkpoint_0004.pth.tar --input-size 512 --target-set qrt ../input/
+gsutil -m cp -r v73 gs://fbisc/exp/
 sudo shutdown
 
 
