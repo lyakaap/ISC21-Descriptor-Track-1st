@@ -167,8 +167,6 @@ python v74.py \
   --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.0 --weight ./v73/train/checkpoint_0004.pth.tar \
   --input-size 384 --sample-size 1000000 --memory-size 20000 \
   ../input/training_images/
-gsutil -m cp -r v74 gs://fbisc/exp/
-sudo shutdown
 
 python v75.py \
   -a tf_efficientnetv2_m_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 666 \
@@ -179,6 +177,10 @@ python v75.py \
 python v75.py -a tf_efficientnetv2_m_in21ft1k --batch-size 256 --mode extract --gem-eval-p 1.0 --weight ./v75/train/checkpoint_0004.pth.tar --input-size 512 --target-set qrt ../input/
 gsutil -m cp -r v75 gs://fbisc/exp/
 sudo shutdown
+{
+  "average_precision": 0.6305097451879395,
+  "recall_p90": 0.5263474253656582
+}
 
 ## ref
 https://github.com/facebookresearch/simsiam
