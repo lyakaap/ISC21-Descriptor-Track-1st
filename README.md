@@ -72,13 +72,23 @@
 - v70: v58のつづき、lr=0.01
 - v71: v69のつづき、lr=0.025, bs=64
 - v72: v69のつづき、lr=0.025, bs=128
-- v73: v58, 別seed
+- v73,v74,v75: v58, 別seed
+- v76: v58, backbone tuning
 
 
 - model1: v58 -> v69 -> v72
 - model2: v73 (resumeあり) -> v74 -> v75
 
 python ../scripts/eval_metrics.py v2/extract/fb-isc-submission.h5 ../input/public_ground_truth.csv
+
+- cat -> norm -> pca -> norm -> iso -> eval:
+{
+  "average_precision": 0.6693173312873409,
+  "recall_p90": 0.5944700460829493
+}
+
+
+
 
 ### train-subset / eval-subset
 
@@ -92,6 +102,25 @@ python v58.py -a tf_efficientnetv2_s_in21ft1k --batch-size 512 --mode extract --
 {
   "average_precision": 0.5821057822009852,
   "recall_p90": 0.5069124423963134
+}
+
+for pos in 0.0 0.1 0.2; do
+  for neg in 0.8 0.9 1.0 1.1; do
+    echo $pos $neg
+    python v76.py \
+      -a dm_nfnet_f0 --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 7 \
+      --epochs 5 --lr 0.1 --wd 1e-6 --batch-size 64 --ncrops 2 \
+      --gem-p 1.0 --pos-margin $pos --neg-margin $neg \
+      --input-size 256 --sample-size 100000 --memory-size 10000 \
+      ../input/training_images/
+    python v76.py -a dm_nfnet_f0 --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v76/train/checkpoint_0004.pth.tar --input-size 256 --eval-subset ../input/
+  done
+done
+
+dm_nfnet_f0
+{
+  "average_precision": 0.5978324371391083,
+  "recall_p90": 0.5193348026447606
 }
 
 ### train-full / eval-subset
@@ -181,6 +210,16 @@ sudo shutdown
   "average_precision": 0.6305097451879395,
   "recall_p90": 0.5263474253656582
 }
+
+python v76.py \
+  -a dm_nfnet_f0 --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 7 \
+  --epochs 5 --lr 0.1 --wd 1e-6 --batch-size 128 --ncrops 2 \
+  --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.0 \
+  --input-size 256 --sample-size 1000000 --memory-size 20000 \
+  ../input/training_images/
+python v76.py -a tf_efficientnetv2_m_in21ft1k --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v76/train/checkpoint_0004.pth.tar --input-size 256 --target-set qrt ../input/
+gsutil -m cp -r v76 gs://fbisc/exp/
+sudo shutdown
 
 ## ref
 https://github.com/facebookresearch/simsiam

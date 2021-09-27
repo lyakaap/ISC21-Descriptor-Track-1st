@@ -1,3 +1,4 @@
+from sklearn.decomposition import TruncatedSVD
 import faiss
 import h5py
 import numpy as np
@@ -15,10 +16,44 @@ def load_descriptor_h5(descs_submission_path):
         reference_ids = np.array(f["reference_ids"][:], dtype=object).astype(str).tolist()
     return query, reference, query_ids, reference_ids
 
+versions = [
+    'v72',
+    'v75',
+]
+qs = []
+rs = []
+ts = []
+for ver in versions:
+    _query, _reference, query_ids, reference_ids = load_descriptor_h5(f'{ver}/extract/fb-isc-submission.h5')
+    _train = np.load(f'{ver}/extract/train_feats.npy')
+    qs.append(_query)
+    rs.append(_reference)
+    ts.append(_train)
 
-submission_path = 'v58/extract/fb-isc-submission.h5'
-query, reference, query_ids, reference_ids = load_descriptor_h5(submission_path)
-train = np.load('v58/extract/train_feats.npy')
+query = np.concatenate(qs, axis=1)
+reference = np.concatenate(rs, axis=1)
+train = np.concatenate(ts, axis=1)
+
+query /= np.linalg.norm(query, axis=1, keepdims=True)
+reference /= np.linalg.norm(reference, axis=1, keepdims=True)
+train /= np.linalg.norm(train, axis=1, keepdims=True)
+
+pca = TruncatedSVD(n_components=256)
+pca.fit(train)
+query = pca.transform(query).astype('float32')
+reference = pca.transform(reference).astype('float32')
+train = pca.transform(train).astype('float32')
+
+query /= np.linalg.norm(query, axis=1, keepdims=True)
+reference /= np.linalg.norm(reference, axis=1, keepdims=True)
+train /= np.linalg.norm(train, axis=1, keepdims=True)
+
+out = f'../output/cat_norm_pca_norm_eval.h5'
+with h5py.File(out, 'w') as f:
+    f.create_dataset('query', data=query)
+    f.create_dataset('reference', data=reference)
+    f.create_dataset('query_ids', data=np.array(query_ids, dtype='S6'))
+    f.create_dataset('reference_ids', data=np.array(reference_ids, dtype='S7'))
 
 index_train = faiss.IndexFlatIP(train.shape[1])
 ngpu = faiss.get_num_gpus()
@@ -55,9 +90,9 @@ submission = pd.DataFrame(columns=['query_id', 'reference_id', 'score'])
 submission['query_id'] = np.repeat(query_ids, 10)
 submission['reference_id'] = np.array(reference_ids)[reference_ind.ravel()]
 submission['score'] = - reference_dist.ravel()
-submission.to_csv('v38/extract/tmp.csv', index=False)
+submission.to_csv('../output/cat_norm_pca_norm_iso.csv', index=False)
 
-out = f'v38/extract/tmp.h5'
+out = f'../output/cat_norm_pca_norm_iso.h5'
 with h5py.File(out, 'w') as f:
     f.create_dataset('query', data=_query)
     f.create_dataset('reference', data=_reference)
