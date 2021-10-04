@@ -502,7 +502,7 @@ def main_worker(gpu, ngpus_per_node, args):
     aug_hard = [
         RandomRotation(p=0.25),
         # OneOf([overlay1, overlay2], p=0.01),
-        RandomOverlayImage(opacity_lower=0.6, size_lower=0.4, size_upper=0.6, p=0.05),
+        RandomOverlayImage(train_paths, opacity_lower=0.6, size_lower=0.4, size_upper=0.6, p=0.05),
         # RandomOverlayImage(opacity_lower=0.5, size_lower=0.3, size_upper=0.7, p=0.075),  # harder
         # RandomOverlayImage(opacity_lower=0.4, size_lower=0.2, size_upper=0.8, p=0.1),  # harder
         transforms.RandomResizedCrop(args.input_size, scale=(0.15, 1.)),
