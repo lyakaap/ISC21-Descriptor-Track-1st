@@ -244,5 +244,15 @@ python v76.py -a dm_nfnet_f0 --batch-size 512 --mode extract --gem-eval-p 1.0 --
 gsutil -m cp -r v76 gs://fbisc/exp/
 sudo shutdown
 
+python v79.py \
+  -a tf_efficientnetv2_s_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 7 \
+  --epochs 5 --lr 0.1 --wd 1e-6 --batch-size 128 --ncrops 2 \
+  --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.0 \
+  --input-size 256 --sample-size 1000000 --memory-size 20000 \
+  ../input/training_images/
+python v79.py -a tf_efficientnetv2_s_in21ft1k --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v79/train/checkpoint_0004.pth.tar --input-size 256 ../input/
+gsutil -m cp -r v79 gs://fbisc/exp/
+sudo shutdown
+
 ## ref
 https://github.com/facebookresearch/simsiam
