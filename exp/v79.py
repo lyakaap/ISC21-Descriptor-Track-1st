@@ -474,6 +474,8 @@ def main_worker(gpu, ngpus_per_node, args):
 
     cudnn.benchmark = True
 
+    train_paths = list(Path(args.data).glob('**/*.jpg'))[:args.sample_size]
+
     aug_moderate = [
         transforms.RandomResizedCrop(args.input_size, scale=(0.7, 1.)),
         transforms.RandomHorizontalFlip(),
@@ -512,7 +514,6 @@ def main_worker(gpu, ngpus_per_node, args):
         transforms.Normalize(mean=backbone.default_cfg['mean'], std=backbone.default_cfg['std']),
     ]
 
-    train_paths = list(Path(args.data).glob('**/*.jpg'))[:args.sample_size]
     train_dataset = ISCDataset(
         train_paths,
         NCropsTransform(
