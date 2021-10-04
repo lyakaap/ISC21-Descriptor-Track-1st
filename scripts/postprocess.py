@@ -38,7 +38,7 @@ query /= np.linalg.norm(query, axis=1, keepdims=True)
 reference /= np.linalg.norm(reference, axis=1, keepdims=True)
 train /= np.linalg.norm(train, axis=1, keepdims=True)
 
-pca = TruncatedSVD(n_components=256)
+pca = TruncatedSVD(n_components=256, random_state=0)
 pca.fit(train)
 query = pca.transform(query).astype('float32')
 reference = pca.transform(reference).astype('float32')
@@ -55,6 +55,8 @@ with h5py.File(out, 'w') as f:
     f.create_dataset('query_ids', data=np.array(query_ids, dtype='S6'))
     f.create_dataset('reference_ids', data=np.array(reference_ids, dtype='S7'))
 
+query, reference, query_ids, reference_ids = load_descriptor_h5(f'../output/cat_norm_pca_norm_eval.h5')
+
 index_train = faiss.IndexFlatIP(train.shape[1])
 ngpu = faiss.get_num_gpus()
 co = faiss.GpuMultipleClonerOptions()
@@ -69,14 +71,23 @@ def embedding_isolation(embedding, train, index, beta, k, num_iter):
         embedding /= np.linalg.norm(embedding, axis=1, keepdims=True)
     return embedding.astype('float32')
 
-num_iter = 3
-beta = 0.35
-k = 10
+q_beta = 0.35
+q_k = 10
+q_num_iter = 3
+
+r_beta = 0.35
+r_k = 10
+r_num_iter = 1
+
+{
+    "average_precision": 0.6707899713591015,
+    "recall_p90": 0.5882588659587257
+}
 
 _query = query
 _reference = reference
-_query = embedding_isolation(_query, train, index_train, beta, k, num_iter)
-_reference = embedding_isolation(_reference, train, index_train, beta, k, num_iter)
+_query = embedding_isolation(_query, train, index_train, q_beta, q_k, q_num_iter)
+_reference = embedding_isolation(_reference, train, index_train, r_beta, r_k, r_num_iter)
 
 index_reference = faiss.IndexFlatL2(_reference.shape[1])
 ngpu = faiss.get_num_gpus()
@@ -86,18 +97,18 @@ index_reference = faiss.index_cpu_to_all_gpus(index_reference, co=co, ngpu=ngpu)
 index_reference.add(_reference)
 reference_dist, reference_ind = index_reference.search(_query, k=10)
 
-submission = pd.DataFrame(columns=['query_id', 'reference_id', 'score'])
-submission['query_id'] = np.repeat(query_ids, 10)
-submission['reference_id'] = np.array(reference_ids)[reference_ind.ravel()]
-submission['score'] = - reference_dist.ravel()
-submission.to_csv('../output/cat_norm_pca_norm_iso.csv', index=False)
-
-out = f'../output/cat_norm_pca_norm_iso.h5'
+out = f'../output/tmp.h5'
 with h5py.File(out, 'w') as f:
     f.create_dataset('query', data=_query)
     f.create_dataset('reference', data=_reference)
     f.create_dataset('query_ids', data=np.array(query_ids, dtype='S6'))
     f.create_dataset('reference_ids', data=np.array(reference_ids, dtype='S7'))
+
+submission = pd.DataFrame(columns=['query_id', 'reference_id', 'score'])
+submission['query_id'] = np.repeat(query_ids, 10)
+submission['reference_id'] = np.array(reference_ids)[reference_ind.ravel()]
+submission['score'] = - reference_dist.ravel()
+submission.to_csv('../output/cat_norm_pca_norm_iso.csv', index=False)
 
 beta = 0.5
 tn = 3

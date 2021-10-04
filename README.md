@@ -74,6 +74,9 @@
 - v72: v69のつづき、lr=0.025, bs=128
 - v73,v74,v75: v58, 別seed
 - v76: v58, backbone tuning
+- v77: HybridEmbed, size=224
+- v78: HybridEmbed, size=384
+- v79: overlay image again
 
 
 - model1: v58 -> v69 -> v72
@@ -122,6 +125,14 @@ dm_nfnet_f0
   "average_precision": 0.5978324371391083,
   "recall_p90": 0.5193348026447606
 }
+
+python v77.py \
+  -a tf_efficientnetv2_s_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 8 \
+  --epochs 5 --lr 1e-3 --wd 1e-2 --batch-size 64 --ncrops 2 \
+  --gem-p 1.0 --pos-margin 0.0 --neg-margin 0.8 \
+  --input-size 224 --sample-size 100000 --memory-size 1000 \
+  ../input/training_images/
+python v77.py -a tf_efficientnetv2_s_in21ft1k --batch-size 256 --mode extract --gem-eval-p 1.0 --weight ./v77/train/checkpoint_0004.pth.tar --input-size 224 --eval-subset ../input/
 
 ### train-full / eval-subset
 python v58.py \
@@ -212,12 +223,24 @@ sudo shutdown
 }
 
 python v76.py \
-  -a dm_nfnet_f0 --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 7 \
-  --epochs 5 --lr 0.1 --wd 1e-6 --batch-size 128 --ncrops 2 \
+  -a dm_nfnet_f0 --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 8 \
+  --epochs 5 --lr 0.01 --wd 1e-6 --batch-size 128 --ncrops 2 \
   --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.0 \
   --input-size 256 --sample-size 1000000 --memory-size 20000 \
   ../input/training_images/
-python v76.py -a tf_efficientnetv2_m_in21ft1k --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v76/train/checkpoint_0004.pth.tar --input-size 256 --target-set qrt ../input/
+python v76.py -a dm_nfnet_f0 --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v76/train/checkpoint_0004.pth.tar --input-size 256 --target-set qrt ../input/
+{
+  "average_precision": 0.5633122016307757,
+  "recall_p90": 0.454217591664997
+}
+python v76.py \
+  -a dm_nfnet_f0 --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 8 \
+  --epochs 5 --lr 0.05 --wd 1e-6 --batch-size 64 --ncrops 2 \
+  --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.0 \
+  --input-size 256 --sample-size 1000000 --memory-size 10000 \
+  ../input/training_images/
+python v76.py -a dm_nfnet_f0 --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v76/train/checkpoint_0004.pth.tar --input-size 256 --target-set qrt ../input/
+
 gsutil -m cp -r v76 gs://fbisc/exp/
 sudo shutdown
 
