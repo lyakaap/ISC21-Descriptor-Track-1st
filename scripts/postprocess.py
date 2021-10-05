@@ -30,6 +30,10 @@ for ver in versions:
     rs.append(_reference)
     ts.append(_train)
 
+query = np.product(qs, axis=0)
+reference = np.product(rs, axis=0)
+train = np.product(ts, axis=0)
+
 query = np.concatenate(qs, axis=1)
 reference = np.concatenate(rs, axis=1)
 train = np.concatenate(ts, axis=1)
