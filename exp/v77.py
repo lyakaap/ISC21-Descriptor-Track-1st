@@ -525,7 +525,7 @@ def main_worker(gpu, ngpus_per_node, args):
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
             train_sampler.set_epoch(epoch)
-        adjust_learning_rate(optimizer, init_lr, epoch, args)
+        # adjust_learning_rate(optimizer, init_lr, epoch, args)
 
         train_one_epoch(train_loader, model, loss_fn, optimizer, scaler, epoch, args)
 
@@ -601,8 +601,13 @@ def extract(args):
         query_paths = query_paths[:100]
         reference_paths = reference_paths[:100]
 
-    backbone = timm.create_model(args.arch, features_only=True, pretrained=True)
-    model = ISCNet(backbone)
+    out_indice = 1
+    backbone = timm.create_model(args.arch, features_only=True, pretrained=True, out_indices=[out_indice])
+    backbone.blocks = backbone.blocks[:out_indice+1]
+    vit = timm.create_model('swin_base_patch4_window7_224', pretrained=True)
+    vit.patch_embed = HybridEmbed(backbone, img_size=args.input_size, embed_dim=vit.embed_dim)
+    del vit.head
+    model = ISCNet(vit)
     model = nn.DataParallel(model)
 
     state_dict = torch.load(args.weight, map_location='cpu')['state_dict']

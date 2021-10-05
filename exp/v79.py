@@ -248,13 +248,17 @@ class RandomOverlayText(BaseTransform):
             return image
 
 
-class RandomOverlayImage(BaseTransform):
+class RandomOverlayImageAndResizedCrop(BaseTransform):
     def __init__(
         self,
         img_paths: List[Path],
         opacity_lower: float = 0.5,
         size_lower: float = 0.4,
         size_upper: float = 0.6,
+        input_size: int = 224,
+        moderate_scale_lower: float = 0.7,
+        hard_scale_lower: float = 0.15,
+        overlay_p: float = 0.05,
         p: float = 1.0,
     ):
         super().__init__(p)
@@ -262,27 +266,36 @@ class RandomOverlayImage(BaseTransform):
         self.opacity_lower = opacity_lower
         self.size_lower = size_lower
         self.size_upper = size_upper
+        self.input_size = input_size
+        self.moderate_scale_lower = moderate_scale_lower
+        self.hard_scale_lower = hard_scale_lower
+        self.overlay_p = overlay_p
 
     def apply_transform(
         self, image: Image.Image, metadata: Optional[List[Dict[str, Any]]] = None
     ) -> Image.Image:
-        if random.uniform(0.0, 1.0) > 0.5:
-            background = Image.open(random.choice(self.img_paths))
-            overlay = image
-        else:
-            background = image
-            overlay = Image.open(random.choice(self.img_paths))
 
-        overlay_size = random.uniform(self.size_lower, self.size_upper)
-        return overlay_image(
-            background,
-            overlay=overlay,
-            opacity=random.uniform(self.opacity_lower, 1.0),
-            overlay_size=overlay_size,
-            x_pos=random.uniform(0.0, 1.0 - overlay_size),
-            y_pos=random.uniform(0.0, 1.0 - overlay_size),
-            metadata=metadata,
-        )
+        if random.uniform(0.0, 1.0) < self.overlay_p:
+            if random.uniform(0.0, 1.0) > 0.5:
+                background = Image.open(random.choice(self.img_paths))
+                overlay = image
+            else:
+                background = image
+                overlay = Image.open(random.choice(self.img_paths))
+
+            overlay_size = random.uniform(self.size_lower, self.size_upper)
+            image = overlay_image(
+                background,
+                overlay=overlay,
+                opacity=random.uniform(self.opacity_lower, 1.0),
+                overlay_size=overlay_size,
+                x_pos=random.uniform(0.0, 1.0 - overlay_size),
+                y_pos=random.uniform(0.0, 1.0 - overlay_size),
+                metadata=metadata,
+            )
+            return transforms.RandomResizedCrop(self.input_size, scale=(self.moderate_scale_lower, 1.))(image)
+        else:
+            return transforms.RandomResizedCrop(self.input_size, scale=(self.hard_scale_lower, 1.))(image)
 
 
 class RandomEmojiOverlay(BaseTransform):
@@ -502,10 +515,12 @@ def main_worker(gpu, ngpus_per_node, args):
     aug_hard = [
         RandomRotation(p=0.25),
         # OneOf([overlay1, overlay2], p=0.01),
-        RandomOverlayImage(train_paths, opacity_lower=0.6, size_lower=0.4, size_upper=0.6, p=0.05),
+        RandomOverlayImageAndResizedCrop(
+            train_paths, opacity_lower=0.6, size_lower=0.4, size_upper=0.6,
+            input_size=args.input_size, moderate_scale_lower=0.7, hard_scale_lower=0.15, overlay_p=0.05, p=1.0,
+        ),
         # RandomOverlayImage(opacity_lower=0.5, size_lower=0.3, size_upper=0.7, p=0.075),  # harder
         # RandomOverlayImage(opacity_lower=0.4, size_lower=0.2, size_upper=0.8, p=0.1),  # harder
-        transforms.RandomResizedCrop(args.input_size, scale=(0.15, 1.)),
         ShuffledAug(aug_list),
         convert2rgb,
         transforms.ToTensor(),
