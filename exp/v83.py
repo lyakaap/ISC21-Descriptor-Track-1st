@@ -15,7 +15,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn.modules.activation import ReLU
 import torch.nn.parallel
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
@@ -105,66 +104,6 @@ parser.add_argument('--sample-size', default=100000, type=int)
 parser.add_argument('--weight', type=str)
 parser.add_argument('--eval-subset', action='store_true')
 parser.add_argument('--memory-size', default=1024, type=int)
-parser.add_argument('--tta', action='store_true')
-
-
-class DOLGLocalBranch(nn.Module):
-
-    def __init__(
-        self,
-        in_channels,
-        base_dim=128,
-        dilations=(6, 12, 18),
-    ):
-        super().__init__()
-        self.multi_atrous = nn.ModuleList([
-            nn.Sequential(nn.Conv2d(in_channels, base_dim, kernel_size=1), nn.ReLU(inplace=True)),
-            nn.Conv2d(in_channels, base_dim, kernel_size=3, padding=dilations[0], dilation=dilations[0]),
-            nn.Conv2d(in_channels, base_dim, kernel_size=3, padding=dilations[1], dilation=dilations[1]),
-            nn.Conv2d(in_channels, base_dim, kernel_size=3, padding=dilations[2], dilation=dilations[2]),
-        ])
-        self.mid = nn.Sequential(
-            nn.Conv2d(base_dim * 4, base_dim * 2, kernel_size=1),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(base_dim * 2, base_dim * 2, kernel_size=1),
-            nn.BatchNorm2d(base_dim * 2),
-        )
-        self.attention_map = nn.Sequential(
-            nn.ReLU(inplace=True),
-            nn.Conv2d(base_dim * 2, base_dim * 2, kernel_size=1),
-            nn.Softplus(),
-        )
-    
-    def forward(self, x):
-        outputs = []
-        for m in self.multi_atrous:
-            outputs.append(m(x))
-
-        x = torch.cat(outputs, dim=1)
-        x = self.mid(x)
-
-        attention_map = self.attention_map(x)
-        normalized_x = x / (torch.linalg.norm(x, dim=(1,), keepdim=True) + 1e-9)
-        # normalized_x = x / (torch.linalg.norm(x, dim=(2, 3), keepdim=True) + 1e-9)
-
-        return attention_map * normalized_x
-
-
-class DOLGFusionModule(nn.Module):
-
-    def __init__(self):
-        super().__init__()
-    
-    def forward(self, local_feat, global_feat):
-        norm_g = torch.linalg.norm(global_feat, dim=1, keepdim=True)
-        cosine = torch.einsum('bcn,bc->bn', local_feat, global_feat) / norm_g
-        proj = torch.einsum('bn,bc->bcn', cosine, global_feat)
-        orth = local_feat - proj
-
-        cat = torch.cat([global_feat.unsqueeze(-1), orth], dim=-1)
-        agg = torch.mean(cat, dim=-1)
-
-        return agg
 
 
 def gem(x, p=3, eps=1e-6):
@@ -173,18 +112,11 @@ def gem(x, p=3, eps=1e-6):
 
 class ISCNet(nn.Module):
 
-    def __init__(
-        self, backbone, fc_dim=256, p=3.0, eval_p=4.0, dilations=(6, 12, 18),
-    ):
+    def __init__(self, backbone, fc_dim=256, p=3.0, eval_p=4.0):
         super().__init__()
 
         self.backbone = backbone
-        self.local_branch = DOLGLocalBranch(
-            in_channels=backbone.feature_info.channels()[0],
-            base_dim=backbone.feature_info.channels()[1] // 2,
-            dilations=dilations,
-        )
-        self.fusion = DOLGFusionModule()
+
         self.fc = nn.Linear(self.backbone.feature_info.info[-1]['num_chs'], fc_dim, bias=False)
         self.bn = nn.BatchNorm1d(fc_dim)
         self._init_params()
@@ -198,15 +130,9 @@ class ISCNet(nn.Module):
 
     def forward(self, x):
         batch_size = x.shape[0]
-        x = self.backbone(x)
-
-        local_feat = self.local_branch(x[0])
-        local_feat = local_feat.view(batch_size, local_feat.shape[1], -1)
+        x = self.backbone(x)[-1]
         p = self.p if self.training else self.eval_p
-        global_feat = gem(x[1], p).view(batch_size, -1)
-
-        x = self.fusion(local_feat, global_feat)
-
+        x = gem(x, p).view(batch_size, -1)
         x = self.fc(x)
         x = self.bn(x)
         x = F.normalize(x)
@@ -483,8 +409,8 @@ def main_worker(gpu, ngpus_per_node, args):
                                 world_size=args.world_size, rank=args.rank)
         torch.distributed.barrier(device_ids=[args.gpu])
 
-    backbone = timm.create_model(args.arch, features_only=True, pretrained=True, out_indices=(3, 4))
-    model = ISCNet(backbone, p=args.gem_p, eval_p=args.gem_eval_p, dilations=(3, 6, 9))
+    backbone = timm.create_model(args.arch, features_only=True, pretrained=True)
+    model = ISCNet(backbone, p=args.gem_p, eval_p=args.gem_eval_p)
 
     # infer learning rate before changing batch size
     init_lr = args.lr  # * args.batch_size / 256
@@ -623,7 +549,7 @@ def main_worker(gpu, ngpus_per_node, args):
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
             train_sampler.set_epoch(epoch)
-        adjust_learning_rate(optimizer, init_lr, epoch, args)
+        # adjust_learning_rate(optimizer, init_lr, epoch, args)
 
         train_one_epoch(train_loader, model, loss_fn, optimizer, scaler, epoch, args)
 
@@ -699,8 +625,8 @@ def extract(args):
         query_paths = query_paths[:100]
         reference_paths = reference_paths[:100]
 
-    backbone = timm.create_model(args.arch, features_only=True, pretrained=True, out_indices=(3, 4))
-    model = ISCNet(backbone, p=args.gem_p, eval_p=args.gem_eval_p, dilations=(3, 6, 9))
+    backbone = timm.create_model(args.arch, features_only=True, pretrained=True)
+    model = ISCNet(backbone, p=args.gem_p, eval_p=args.gem_eval_p)
     model = nn.DataParallel(model)
 
     state_dict = torch.load(args.weight, map_location='cpu')['state_dict']
@@ -710,18 +636,11 @@ def extract(args):
 
     cudnn.benchmark = True
 
-    if args.tta:
-        preprocesses = [
-            transforms.Resize((int(args.input_size * 1.4142135623730951), int(args.input_size * 1.4142135623730951))),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=backbone.default_cfg['mean'], std=backbone.default_cfg['std'])
-        ]
-    else:
-        preprocesses = [
-            transforms.Resize((args.input_size, args.input_size)),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=backbone.default_cfg['mean'], std=backbone.default_cfg['std'])
-        ]
+    preprocesses = [
+        transforms.Resize((args.input_size, args.input_size)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=backbone.default_cfg['mean'], std=backbone.default_cfg['std'])
+    ]
 
     datasets = {
         'query': ISCDataset(query_paths, transforms.Compose(preprocesses)),
@@ -740,29 +659,7 @@ def extract(args):
         for _, image in tqdm(loader, total=len(loader)):
             image = image.cuda()
             with torch.no_grad(), torch.cuda.amp.autocast():
-                if args.tta:
-                    image_big = image
-                    image = F.interpolate(image_big, size=args.input_size, mode='bilinear', align_corners=False)
-                    image_small = F.interpolate(image, scale_factor=0.7071067811865475, mode='bilinear', align_corners=False)
-                    f = (
-                        model(image) + model(image_small) + model(image_big)
-                        + model(transforms.functional.hflip(image))
-                        + model(transforms.functional.hflip(image_small))
-                        + model(transforms.functional.hflip(image_big))
-                    )
-                    f /= torch.linalg.norm(f, dim=1, keepdim=True)
-
-                    # f = model(image) + model(transforms.functional.hflip(image)) + model(transforms.functional.vflip(image))
-                    # f /= torch.linalg.norm(f, dim=1, keepdim=True)
-
-                    # images = transforms.FiveCrop(args.input_size)(image)
-                    # f = []
-                    # for image in images:
-                    #     f.append(model(image)[None])
-                    # f = torch.cat(f, dim=0).mean(dim=0)
-                    # f /= torch.linalg.norm(f, dim=1, keepdim=True)
-                else:
-                    f = model(image)
+                f = model(image)
             feats.append(f.cpu().numpy())
         feats = np.concatenate(feats, axis=0)
         return feats.astype(np.float32)

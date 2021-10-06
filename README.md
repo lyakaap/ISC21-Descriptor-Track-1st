@@ -77,9 +77,10 @@
 - v77: HybridEmbed, size=224
 - v78: HybridEmbed, size=384
 - v79: overlay image again
-- v80: DOLG
+- v80: DOLG, TTA codeつき
 - v81: DOLG, simplified
 - v82: DOLG, lr fixed
+- v83: v79, lr fixed
 
 - model1: v58 -> v69 -> v72
 - model2: v73 (resumeあり) -> v74 -> v75
@@ -167,6 +168,10 @@ python v80.py \
   --input-size 224 --sample-size 100000 --memory-size 5000 \
   ../input/training_images/
 python v80.py -a tf_efficientnetv2_s_in21ft1k --batch-size 256 --mode extract --gem-eval-p 1.0 --weight ./v80/train/checkpoint_0004.pth.tar --input-size 224 --eval-subset ../input/
+{
+  "average_precision": 0.5781064103026176,
+  "recall_p90": 0.5037066720096173
+}
 
 python v81.py \
   -a tf_efficientnetv2_s_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 10 \
@@ -323,6 +328,30 @@ python v82.py \
 python v82.py -a tf_efficientnetv2_m_in21ft1k --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v82/train/checkpoint_0004.pth.tar --input-size 256 --target-set qrt ../input/
 gsutil -m cp -r v82 gs://fbisc/exp/
 sudo shutdown
+
+for epoch in `seq 0 4`;
+do
+  python v82.py -a tf_efficientnetv2_m_in21ft1k --batch-size 256 --mode extract --gem-eval-p 1.0 --weight ./v82/train/checkpoint_000${epoch}.pth.tar --input-size 256 --eval-subset ../input/
+done
+python v82.py -a tf_efficientnetv2_m_in21ft1k --batch-size 256 --mode extract --gem-eval-p 1.0 --weight ./v82/train/checkpoint_0001.pth.tar --input-size 256 --target-set qr ../input/
+0001.pthが最高
+プラン
+- 最初から最大サイズでlr decayあり
+- lr-fixで2epoch->2epoch->2epochとか
+  - そのときstepごとにdecayさせる。また、2epochだけじゃなく、ちょっと長めに学習させる。（長い分には困らないので）
+
+
+python v83.py \
+  -a tf_efficientnetv2_m_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 9 \
+  --epochs 5 --lr 0.1 --wd 1e-6 --batch-size 128 --ncrops 2 \
+  --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.0 \
+  --input-size 256 --sample-size 1000000 --memory-size 20000 \
+  ../input/training_images/
+python v83.py -a tf_efficientnetv2_m_in21ft1k --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v83/train/checkpoint_0004.pth.tar --input-size 256 --target-set qrt ../input/
+gsutil -m cp -r v83 gs://fbisc/exp/
+sudo shutdown
+
+
 
 ## ref
 https://github.com/facebookresearch/simsiam
