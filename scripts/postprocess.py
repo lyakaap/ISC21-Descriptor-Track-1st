@@ -1,8 +1,8 @@
-from sklearn.decomposition import TruncatedSVD
 import faiss
 import h5py
 import numpy as np
 import pandas as pd
+from sklearn.decomposition import TruncatedSVD
 
 
 def load_descriptor_h5(descs_submission_path):
@@ -14,7 +14,14 @@ def load_descriptor_h5(descs_submission_path):
         # Coerce IDs to native Python unicode string no matter what type they were before
         query_ids = np.array(f["query_ids"][:], dtype=object).astype(str).tolist()
         reference_ids = np.array(f["reference_ids"][:], dtype=object).astype(str).tolist()
-    return query, reference, query_ids, reference_ids
+
+        if "train" in f:
+            train = f["train"][:]
+        else:
+            train = None
+
+    return query, reference, train, query_ids, reference_ids
+
 
 versions = [
     'v72',
@@ -24,15 +31,11 @@ qs = []
 rs = []
 ts = []
 for ver in versions:
-    _query, _reference, query_ids, reference_ids = load_descriptor_h5(f'{ver}/extract/fb-isc-submission.h5')
+    _query, _reference, _, query_ids, reference_ids = load_descriptor_h5(f'{ver}/extract/fb-isc-submission.h5')
     _train = np.load(f'{ver}/extract/train_feats.npy')
     qs.append(_query)
     rs.append(_reference)
     ts.append(_train)
-
-query = np.product(qs, axis=0)
-reference = np.product(rs, axis=0)
-train = np.product(ts, axis=0)
 
 query = np.concatenate(qs, axis=1)
 reference = np.concatenate(rs, axis=1)
@@ -56,10 +59,11 @@ out = f'../output/cat_norm_pca_norm_eval.h5'
 with h5py.File(out, 'w') as f:
     f.create_dataset('query', data=query)
     f.create_dataset('reference', data=reference)
+    f.create_dataset('train', data=train)
     f.create_dataset('query_ids', data=np.array(query_ids, dtype='S6'))
     f.create_dataset('reference_ids', data=np.array(reference_ids, dtype='S7'))
 
-query, reference, query_ids, reference_ids = load_descriptor_h5(f'../output/cat_norm_pca_norm_eval.h5')
+query, reference, train, query_ids, reference_ids = load_descriptor_h5(f'../output/cat_norm_pca_norm_eval.h5')
 
 index_train = faiss.IndexFlatIP(train.shape[1])
 ngpu = faiss.get_num_gpus()
@@ -68,12 +72,20 @@ co.shard = False
 index_train = faiss.index_cpu_to_all_gpus(index_train, co=co, ngpu=ngpu)
 index_train.add(train)
 
+sim, ind = index_train.search(train, k=10)
+k = 10
+alpha = 3.0
+_train = (train[ind[:, :k]] * (sim[:, :k, None] ** alpha)).sum(axis=1)
+_train /= np.linalg.norm(_train, axis=1, keepdims=True)
+
+
 def embedding_isolation(embedding, train, index, beta, k, num_iter):
     for _ in range(num_iter):
         _, ind = index.search(embedding, k=k)
         embedding = embedding - (train[ind[:, :k]].mean(axis=1) * beta)
         embedding /= np.linalg.norm(embedding, axis=1, keepdims=True)
     return embedding.astype('float32')
+
 
 q_beta = 0.35
 q_k = 10
@@ -88,10 +100,26 @@ r_num_iter = 1
     "recall_p90": 0.5882588659587257
 }
 
+'最後にpca, DBA後にSVDfit'
+'query_only'
+{
+    "average_precision": 0.6674278546212521,
+    "recall_p90": 0.5860548988178722
+}
+k=3
+alpha=3.0
+'query_only'
+{
+    "average_precision": 0.6691783583935197,
+    "recall_p90": 0.5916649969945903
+}
+
 _query = query
 _reference = reference
-_query = embedding_isolation(_query, train, index_train, q_beta, q_k, q_num_iter)
-_reference = embedding_isolation(_reference, train, index_train, r_beta, r_k, r_num_iter)
+_query = embedding_isolation(_query, _train, index_train, q_beta, q_k, q_num_iter)
+_reference = embedding_isolation(_reference, _train, index_train, r_beta, r_k, r_num_iter)
+# _query = embedding_isolation(_query, train, index_train, q_beta, q_k, q_num_iter)
+# _reference = embedding_isolation(_reference, train, index_train, r_beta, r_k, r_num_iter)
 
 index_reference = faiss.IndexFlatL2(_reference.shape[1])
 ngpu = faiss.get_num_gpus()
@@ -113,6 +141,7 @@ submission['query_id'] = np.repeat(query_ids, 10)
 submission['reference_id'] = np.array(reference_ids)[reference_ind.ravel()]
 submission['score'] = - reference_dist.ravel()
 submission.to_csv('../output/cat_norm_pca_norm_iso.csv', index=False)
+
 
 beta = 0.5
 tn = 3
