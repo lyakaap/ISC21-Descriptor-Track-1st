@@ -80,8 +80,10 @@
 - v80: DOLG, TTA codeつき
 - v81: DOLG, simplified
 - v82: DOLG, lr fixed
-- v83: v79, lr fixed
-- v84: v83, increase
+- v83: v79, lr fixed, lr=0.1
+- v84: v83, increase, lr=0.02
+- v85: v84, increase, lr=0.004
+- v86: v83, increase, lr=0.1
 - v: DOLG, without L2Norm
 - v: DOLG, multihead-attention
 
@@ -340,9 +342,9 @@ python v82.py -a tf_efficientnetv2_m_in21ft1k --batch-size 512 --mode extract --
 gsutil -m cp -r v82 gs://fbisc/exp/
 sudo shutdown
 
-for epoch in `seq 5 6`;
+for epoch in `seq 0 6`;
 do
-  python v83.py -a tf_efficientnetv2_m_in21ft1k --batch-size 256 --mode extract --gem-eval-p 1.0 --weight ./v83/train/checkpoint_000${epoch}.pth.tar --input-size 256 --eval-subset ../input/
+  python v84.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract --gem-eval-p 1.0 --weight ./v84/train/checkpoint_000${epoch}.pth.tar --input-size 384 --eval-subset ../input/
 done
 python v82.py -a tf_efficientnetv2_m_in21ft1k --batch-size 256 --mode extract --gem-eval-p 1.0 --weight ./v82/train/checkpoint_0001.pth.tar --input-size 256 --target-set qr ../input/
 {
@@ -376,10 +378,20 @@ python v84.py \
   -a tf_efficientnetv2_m_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 99 \
   --epochs 7 --lr 0.02 --wd 1e-6 --batch-size 128 --ncrops 2 \
   --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.0 \
-  --input-size 256 --sample-size 1000000 --memory-size 20000 \
+  --input-size 384 --sample-size 1000000 --memory-size 20000 \
   --weight ./v83/train/checkpoint_0005.pth.tar \
   ../input/training_images/
 gsutil -m cp -r v84 gs://fbisc/exp/
+sudo shutdown
+
+python v86.py \
+  -a tf_efficientnetv2_m_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 99 \
+  --epochs 7 --lr 0.1 --wd 1e-6 --batch-size 128 --ncrops 2 \
+  --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.0 \
+  --input-size 384 --sample-size 1000000 --memory-size 20000 \
+  --weight ./v83/train/checkpoint_0005.pth.tar \
+  ../input/training_images/
+gsutil -m cp -r v86 gs://fbisc/exp/
 sudo shutdown
 
 
