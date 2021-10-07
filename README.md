@@ -84,6 +84,7 @@
 - v84: v83, increase, lr=0.02
 - v85: v84, increase, lr=0.004
 - v86: v83, increase, lr=0.1
+- v87: v86, increase, lr=0.1, lr decay
 - v: DOLG, without L2Norm
 - v: DOLG, multihead-attention
 
@@ -346,6 +347,14 @@ for epoch in `seq 0 6`;
 do
   python v84.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract --gem-eval-p 1.0 --weight ./v84/train/checkpoint_000${epoch}.pth.tar --input-size 384 --eval-subset ../input/
 done
+for epoch in `seq 0 2`;
+do
+  python v85.py -a tf_efficientnetv2_m_in21ft1k --batch-size 64 --mode extract --gem-eval-p 1.0 --weight ./v85/train/checkpoint_000${epoch}.pth.tar --input-size 512 --eval-subset ../input/
+done
+for epoch in `seq 4 6`;
+do
+  python v86.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract --gem-eval-p 1.0 --weight ./v86/train/checkpoint_000${epoch}.pth.tar --input-size 384 --eval-subset ../input/
+done
 python v82.py -a tf_efficientnetv2_m_in21ft1k --batch-size 256 --mode extract --gem-eval-p 1.0 --weight ./v82/train/checkpoint_0001.pth.tar --input-size 256 --target-set qr ../input/
 {
   "average_precision": 0.5570422225858732,
@@ -393,6 +402,10 @@ python v85.py \
 python v85.py -a tf_efficientnetv2_m_in21ft1k --batch-size 256 --mode extract --gem-eval-p 1.0 --weight ./v85/train/checkpoint_0004.pth.tar --input-size 512 --target-set qrt ../input/
 gsutil -m cp -r v85 gs://fbisc/exp/
 sudo shutdown
+{
+  "average_precision": 0.6225837253337314,
+  "recall_p90": 0.517531556802244
+}
 
 python v86.py \
   -a tf_efficientnetv2_m_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 99 \
@@ -404,7 +417,15 @@ python v86.py \
 gsutil -m cp -r v86 gs://fbisc/exp/
 sudo shutdown
 
-
+python v87.py \
+  -a tf_efficientnetv2_m_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 999 \
+  --epochs 5 --lr 0.1 --wd 1e-6 --batch-size 128 --ncrops 2 \
+  --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.0 --weight ./v86/train/checkpoint_0005.pth.tar \
+  --input-size 512 --sample-size 1000000 --memory-size 20000 \
+  ../input/training_images/
+python v87.py -a tf_efficientnetv2_m_in21ft1k --batch-size 256 --mode extract --gem-eval-p 1.0 --weight ./v87/train/checkpoint_0004.pth.tar --input-size 512 --target-set qrt ../input/
+gsutil -m cp -r v87 gs://fbisc/exp/
+sudo shutdown
 
 
 ## ref
