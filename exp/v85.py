@@ -507,25 +507,25 @@ def main_worker(gpu, ngpus_per_node, args):
     overlay1 = OverlayOntoScreenshot()
     overlay2 = OverlayOntoScreenshot(template_filepath=overlay1.template_filepath.replace('web', 'mobile'))
     aug_list = [
-        transforms.ColorJitter(0.75, 0.75, 0.75, 0.2),
+        transforms.ColorJitter(0.8, 0.8, 0.8, 0.2),
         RandomPixelization(p=0.25),
         ShufflePixels(factor=0.1, p=0.25),
-        OneOf([EncodingQuality(quality=q) for q in [10, 20, 30, 50]], p=0.3),
+        OneOf([EncodingQuality(quality=q) for q in [10, 20, 30, 50]], p=0.35),
         transforms.RandomGrayscale(p=0.25),
         RandomBlur(p=0.25),
-        transforms.RandomPerspective(p=0.3),
+        transforms.RandomPerspective(p=0.35),
         transforms.RandomHorizontalFlip(p=0.5),
         transforms.RandomVerticalFlip(p=0.1),
-        RandomOverlayText(p=0.3),
-        RandomEmojiOverlay(p=0.3),
+        RandomOverlayText(p=0.35),
+        RandomEmojiOverlay(p=0.35),
         OneOf([RandomEdgeEnhance(mode=ImageFilter.EDGE_ENHANCE), RandomEdgeEnhance(mode=ImageFilter.EDGE_ENHANCE_MORE)], p=0.3),
     ]
     aug_hard = [
-        RandomRotation(p=0.3),
+        RandomRotation(p=0.35),
         # OneOf([overlay1, overlay2], p=0.01),
         RandomOverlayImageAndResizedCrop(
-            train_paths, opacity_lower=0.5, size_lower=0.3, size_upper=0.7,
-            input_size=args.input_size, moderate_scale_lower=0.7, hard_scale_lower=0.15, overlay_p=0.075, p=1.0,
+            train_paths, opacity_lower=0.4, size_lower=0.2, size_upper=0.8,
+            input_size=args.input_size, moderate_scale_lower=0.7, hard_scale_lower=0.15, overlay_p=0.1, p=1.0,
         ),
         # RandomOverlayImage(opacity_lower=0.5, size_lower=0.3, size_upper=0.7, p=0.075),  # harder
         # RandomOverlayImage(opacity_lower=0.4, size_lower=0.2, size_upper=0.8, p=0.1),  # harder
