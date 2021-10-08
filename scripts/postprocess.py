@@ -26,6 +26,8 @@ def load_descriptor_h5(descs_submission_path):
 versions = [
     'v72',
     'v75',
+    'v85',
+    'v87',
 ]
 qs = []
 rs = []
@@ -78,6 +80,12 @@ alpha = 3.0
 _train = (train[ind[:, :k]] * (sim[:, :k, None] ** alpha)).sum(axis=1)
 _train /= np.linalg.norm(_train, axis=1, keepdims=True)
 
+index_train = faiss.IndexFlatIP(train.shape[1])
+ngpu = faiss.get_num_gpus()
+co = faiss.GpuMultipleClonerOptions()
+co.shard = False
+index_train = faiss.index_cpu_to_all_gpus(index_train, co=co, ngpu=ngpu)
+index_train.add(_train)
 
 def embedding_isolation(embedding, train, index, beta, k, num_iter):
     for _ in range(num_iter):
@@ -94,25 +102,6 @@ q_num_iter = 3
 r_beta = 0.35
 r_k = 10
 r_num_iter = 1
-
-{
-    "average_precision": 0.6707899713591015,
-    "recall_p90": 0.5882588659587257
-}
-
-'最後にpca, DBA後にSVDfit'
-'query_only'
-{
-    "average_precision": 0.6674278546212521,
-    "recall_p90": 0.5860548988178722
-}
-k=3
-alpha=3.0
-'query_only'
-{
-    "average_precision": 0.6691783583935197,
-    "recall_p90": 0.5916649969945903
-}
 
 _query = query
 _reference = reference
@@ -141,6 +130,7 @@ submission['query_id'] = np.repeat(query_ids, 10)
 submission['reference_id'] = np.array(reference_ids)[reference_ind.ravel()]
 submission['score'] = - reference_dist.ravel()
 submission.to_csv('../output/cat_norm_pca_norm_iso.csv', index=False)
+submission.to_csv('../output/v87.csv', index=False)
 
 
 beta = 0.5
@@ -158,4 +148,4 @@ submission['score'] = - reference_dist.ravel()
 query_ind = submission['query_id'].map(lambda x: x[1:]).astype(int).values
 # reference_ind = submission['reference_id'].map(lambda x: x[1:]).astype(int).values
 submission['score'] -= sq[query_ind] * beta
-submission.to_csv('v38/extract/tmp.csv', index=False)
+submission.to_csv('v87/extract/tmp.csv', index=False)
