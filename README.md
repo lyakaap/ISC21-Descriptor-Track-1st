@@ -86,6 +86,9 @@
 - v86: v83, increase, lr=0.1
 - v87: v86, increase, lr=0.1, lr decay
 - v88: 最初から512x512
+- v89: query-reference pairを学習
+- v90: s-MOCO
+
 - v: DOLG, without L2Norm
 - v: DOLG, multihead-attention
 
@@ -348,13 +351,17 @@ for epoch in `seq 0 6`;
 do
   python v84.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract --gem-eval-p 1.0 --weight ./v84/train/checkpoint_000${epoch}.pth.tar --input-size 384 --eval-subset ../input/
 done
-for epoch in `seq 0 2`;
+for epoch in `seq 3 4`;
 do
   python v85.py -a tf_efficientnetv2_m_in21ft1k --batch-size 64 --mode extract --gem-eval-p 1.0 --weight ./v85/train/checkpoint_000${epoch}.pth.tar --input-size 512 --eval-subset ../input/
 done
 for epoch in `seq 4 6`;
 do
   python v86.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract --gem-eval-p 1.0 --weight ./v86/train/checkpoint_000${epoch}.pth.tar --input-size 384 --eval-subset ../input/
+done
+for epoch in `seq 6 9`;
+do
+  python v88.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract --gem-eval-p 1.0 --weight ./v88/train/checkpoint_000${epoch}.pth.tar --input-size 512 --eval-subset ../input/
 done
 python v82.py -a tf_efficientnetv2_m_in21ft1k --batch-size 256 --mode extract --gem-eval-p 1.0 --weight ./v82/train/checkpoint_0001.pth.tar --input-size 256 --target-set qr ../input/
 {
@@ -400,7 +407,7 @@ python v85.py \
   --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.0 --weight ./v84/train/checkpoint_0006.pth.tar \
   --input-size 512 --sample-size 1000000 --memory-size 20000 \
   ../input/training_images/
-python v85.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract --gem-eval-p 1.0 --weight ./v85/train/checkpoint_0004.pth.tar --input-size 512 --target-set t ../input/
+python v85.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract --gem-eval-p 1.0 --weight ./v85/train/checkpoint_0004.pth.tar --input-size 512 --target-set qrt ../input/
 gsutil -m cp -r v85 gs://fbisc/exp/
 sudo shutdown
 {
@@ -438,8 +445,19 @@ python v88.py \
   --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.0 \
   --input-size 512 --sample-size 1000000 --memory-size 20000 \
   ../input/training_images/
+python v88.py -a tf_efficientnetv2_m_in21ft1k --batch-size 256 --mode extract --gem-eval-p 1.0 --weight ./v88/train/checkpoint_0009.pth.tar --input-size 512 --target-set qrt ../input/
 gsutil -m cp -r v88 gs://fbisc/exp/
 sudo shutdown
+
+
+
+python v89.py \
+  -a tf_efficientnetv2_m_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 99999 \
+  --epochs 10 --lr 0.1 --wd 1e-6 --batch-size 128 --ncrops 2 \
+  --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.0 --weight ./v85/train/checkpoint_0004.pth.tar \
+  --input-size 512 --sample-size 1000000 --memory-size 1000 \
+  ../input/training_images/
+python v89.py -a tf_efficientnetv2_m_in21ft1k --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v89/train/checkpoint_0009.pth.tar --input-size 512 --eval-subset ../input/
 
 
 ## ref
