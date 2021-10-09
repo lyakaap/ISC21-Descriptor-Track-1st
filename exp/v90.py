@@ -355,16 +355,6 @@ def convert2rgb(x):
     return x.convert('RGB')
 
 
-def copy_params(encQ, encK, m=None):
-    if m is None:
-        for param_q, param_k in zip(encQ.parameters(), encK.parameters()):
-            param_k.data.copy_(param_q.data)  # initialize
-            param_k.requires_grad = False  # not update by gradient
-    else:
-        for param_q, param_k in zip(encQ.parameters(), encK.parameters()):
-            param_k.data = param_k.data * m + param_q.data * (1. - m)
-
-
 def train(args):
 
     if args.seed is not None:
@@ -421,7 +411,6 @@ def main_worker(gpu, ngpus_per_node, args):
 
     backbone = timm.create_model(args.arch, features_only=True, pretrained=True)
     model = ISCNet(backbone, p=args.gem_p, eval_p=args.gem_eval_p)
-    ema = ISCNet(backbone, p=args.gem_p, eval_p=args.gem_eval_p)
 
     if args.weight is not None:
         state_dict = torch.load(args.weight, map_location='cpu')['state_dict']
@@ -463,16 +452,6 @@ def main_worker(gpu, ngpus_per_node, args):
         # AllGather implementation (batch shuffle, queue update, etc.) in
         # this code only supports DistributedDataParallel.
         raise NotImplementedError("Only DistributedDataParallel is supported.")
-
-    ema = torch.nn.SyncBatchNorm.convert_sync_batchnorm(ema)
-    if args.gpu is not None:
-        ema.cuda(args.gpu)
-        ema = torch.nn.parallel.DistributedDataParallel(ema, device_ids=[args.gpu], find_unused_parameters=True)
-    else:
-        ema.cuda()
-        ema = torch.nn.parallel.DistributedDataParallel(ema, find_unused_parameters=True)
-
-    copy_params(model, ema)
 
     loss_fn = losses.ContrastiveLoss(pos_margin=args.pos_margin, neg_margin=args.neg_margin)
     loss_fn = losses.CrossBatchMemory(loss_fn, embedding_size=256, memory_size=args.memory_size)
@@ -528,25 +507,25 @@ def main_worker(gpu, ngpus_per_node, args):
     overlay1 = OverlayOntoScreenshot()
     overlay2 = OverlayOntoScreenshot(template_filepath=overlay1.template_filepath.replace('web', 'mobile'))
     aug_list = [
-        transforms.ColorJitter(0.7, 0.7, 0.7, 0.2),
+        transforms.ColorJitter(0.75, 0.75, 0.75, 0.2),
         RandomPixelization(p=0.25),
         ShufflePixels(factor=0.1, p=0.25),
-        OneOf([EncodingQuality(quality=q) for q in [10, 20, 30, 50]], p=0.25),
+        OneOf([EncodingQuality(quality=q) for q in [10, 20, 30, 50]], p=0.3),
         transforms.RandomGrayscale(p=0.25),
         RandomBlur(p=0.25),
-        transforms.RandomPerspective(p=0.25),
+        transforms.RandomPerspective(p=0.3),
         transforms.RandomHorizontalFlip(p=0.5),
         transforms.RandomVerticalFlip(p=0.1),
-        RandomOverlayText(p=0.25),
-        RandomEmojiOverlay(p=0.25),
-        OneOf([RandomEdgeEnhance(mode=ImageFilter.EDGE_ENHANCE), RandomEdgeEnhance(mode=ImageFilter.EDGE_ENHANCE_MORE)], p=0.25),
+        RandomOverlayText(p=0.3),
+        RandomEmojiOverlay(p=0.3),
+        OneOf([RandomEdgeEnhance(mode=ImageFilter.EDGE_ENHANCE), RandomEdgeEnhance(mode=ImageFilter.EDGE_ENHANCE_MORE)], p=0.3),
     ]
     aug_hard = [
-        RandomRotation(p=0.25),
+        RandomRotation(p=0.3),
         # OneOf([overlay1, overlay2], p=0.01),
         RandomOverlayImageAndResizedCrop(
-            train_paths, opacity_lower=0.6, size_lower=0.4, size_upper=0.6,
-            input_size=args.input_size, moderate_scale_lower=0.7, hard_scale_lower=0.15, overlay_p=0.05, p=1.0,
+            train_paths, opacity_lower=0.5, size_lower=0.3, size_upper=0.7,
+            input_size=args.input_size, moderate_scale_lower=0.7, hard_scale_lower=0.15, overlay_p=0.075, p=1.0,
         ),
         # RandomOverlayImage(opacity_lower=0.5, size_lower=0.3, size_upper=0.7, p=0.075),  # harder
         # RandomOverlayImage(opacity_lower=0.4, size_lower=0.2, size_upper=0.8, p=0.1),  # harder
@@ -580,7 +559,7 @@ def main_worker(gpu, ngpus_per_node, args):
             train_sampler.set_epoch(epoch)
         adjust_learning_rate(optimizer, init_lr, epoch, args)
 
-        train_one_epoch(train_loader, model, ema, loss_fn, optimizer, scaler, epoch, args)
+        train_one_epoch(train_loader, model, loss_fn, optimizer, scaler, epoch, args)
 
         if not args.multiprocessing_distributed or (args.multiprocessing_distributed
                                                     and args.rank % ngpus_per_node == 0):
@@ -593,7 +572,7 @@ def main_worker(gpu, ngpus_per_node, args):
             }, is_best=False, filename=f'{ver}/train/checkpoint_{epoch:04d}.pth.tar')
 
 
-def train_one_epoch(train_loader, model, ema, loss_fn, optimizer, scaler, epoch, args):
+def train_one_epoch(train_loader, model, loss_fn, optimizer, scaler, epoch, args):
     losses = AverageMeter('Loss', ':.4f')
     progress = tqdm(train_loader, desc=f'epoch {epoch}', leave=False, total=len(train_loader))
 
@@ -610,9 +589,7 @@ def train_one_epoch(train_loader, model, ema, loss_fn, optimizer, scaler, epoch,
 
         with torch.cuda.amp.autocast():
             embeddings = model(images)
-            with torch.no_grad():
-                ema_embeddings = copy_params(model, ema, m=0.99)
-            loss = loss_fn(embeddings, ema_embeddings, labels)
+            loss = loss_fn(embeddings, labels)
 
         losses.update(loss.item(), images.size(0))
 
