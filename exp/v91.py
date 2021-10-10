@@ -524,8 +524,8 @@ def main_worker(gpu, ngpus_per_node, args):
         RandomRotation(p=0.35),
         # OneOf([overlay1, overlay2], p=0.01),
         RandomOverlayImageAndResizedCrop(
-            train_paths, opacity_lower=0.4, size_lower=0.2, size_upper=0.8,
-            input_size=args.input_size, moderate_scale_lower=0.7, hard_scale_lower=0.15, overlay_p=0.1, p=1.0,
+            train_paths, opacity_lower=0.4, size_lower=0.25, size_upper=0.75,
+            input_size=args.input_size, moderate_scale_lower=0.7, hard_scale_lower=0.15, overlay_p=0.075, p=1.0,
         ),
         # RandomOverlayImage(opacity_lower=0.5, size_lower=0.3, size_upper=0.7, p=0.075),  # harder
         # RandomOverlayImage(opacity_lower=0.4, size_lower=0.2, size_upper=0.8, p=0.1),  # harder
