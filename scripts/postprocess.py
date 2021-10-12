@@ -24,10 +24,11 @@ def load_descriptor_h5(descs_submission_path):
 
 
 versions = [
-    'v72',
-    'v75',
-    'v85',
-    'v87',
+    # 'v72',
+    # 'v75',
+    # 'v85',
+    # 'v87',
+    'v89'
 ]
 qs = []
 rs = []
@@ -129,8 +130,8 @@ submission = pd.DataFrame(columns=['query_id', 'reference_id', 'score'])
 submission['query_id'] = np.repeat(query_ids, 10)
 submission['reference_id'] = np.array(reference_ids)[reference_ind.ravel()]
 submission['score'] = - reference_dist.ravel()
-submission.to_csv('../output/cat_norm_pca_norm_iso.csv', index=False)
-submission.to_csv('../output/v87.csv', index=False)
+# submission.to_csv('../output/cat_norm_pca_norm_iso.csv', index=False)
+submission.to_csv('../output/tmp.csv', index=False)
 
 
 beta = 0.5

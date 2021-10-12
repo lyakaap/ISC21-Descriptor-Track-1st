@@ -90,6 +90,7 @@
 - v90: v79, lr=0.05, 384
 - v91: v90, lr-0.025, 512
 - v92: v84, lr=0.01, fixed, 512
+- v93: DOLG, 512
 
 - v: DOLG, without L2Norm
 - v: DOLG, multihead-attention
@@ -358,9 +359,9 @@ for epoch in `seq 0 6`;
 do
   python v84.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract --gem-eval-p 1.0 --weight ./v84/train/checkpoint_000${epoch}.pth.tar --input-size 384 --eval-subset ../input/
 done
-for epoch in `seq 3 4`;
+for epoch in `seq 0 4`;
 do
-  python v85.py -a tf_efficientnetv2_m_in21ft1k --batch-size 64 --mode extract --gem-eval-p 1.0 --weight ./v85/train/checkpoint_000${epoch}.pth.tar --input-size 512 --eval-subset ../input/
+  python v85.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract --gem-eval-p 1.0 --weight ./v85/train/checkpoint_000${epoch}.pth.tar --input-size 512 --eval-subset ../input/
 done
 for epoch in `seq 4 6`;
 do
@@ -538,6 +539,14 @@ python v92.py \
 python v92.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract --gem-eval-p 1.0 --weight ./v92/train/checkpoint_0004.pth.tar --input-size 512 --target-set qrt ../input/
 gsutil -m cp -r v92 gs://fbisc/exp/
 sudo shutdown
+
+python v93.py \
+  -a tf_efficientnetv2_m_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 11 \
+  --epochs 7 --lr 0.1 --wd 1e-6 --batch-size 128 --ncrops 2 \
+  --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.0 \
+  --input-size 512 --sample-size 1000000 --memory-size 20000 \
+  ../input/training_images/
+python v93.py -a tf_efficientnetv2_m_in21ft1k --batch-size 256 --mode extract --gem-eval-p 1.0 --weight ./v93/train/checkpoint_0006.pth.tar --input-size 512 --eval-subset ../input/
 
 ## ref
 https://github.com/facebookresearch/simsiam
