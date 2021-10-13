@@ -91,9 +91,13 @@
 - v91: v90, lr-0.025, 512
 - v92: v84, lr=0.01, fixed, 512
 - v93: DOLG, 512
+- v94: v84, query-reference pairを学習, res=384
+- v95: v84, query-reference pairを学習, res=512
 
 - v: DOLG, without L2Norm
 - v: DOLG, multihead-attention
+
+- query trainingをv84からinput_res=512でやる。
 
 - model1: v58 -> v69 -> v72
 - model2: v73 (resumeあり) -> v74 -> v75
@@ -371,6 +375,10 @@ for epoch in `seq 6 9`;
 do
   python v88.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract --gem-eval-p 1.0 --weight ./v88/train/checkpoint_000${epoch}.pth.tar --input-size 512 --eval-subset ../input/
 done
+for epoch in `seq 4 6`;
+do
+  python v93.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract --gem-eval-p 1.0 --weight ./v93/train/checkpoint_000${epoch}.pth.tar --input-size 512 --eval-subset ../input/
+done
 python v82.py -a tf_efficientnetv2_m_in21ft1k --batch-size 256 --mode extract --gem-eval-p 1.0 --weight ./v82/train/checkpoint_0001.pth.tar --input-size 256 --target-set qr ../input/
 {
   "average_precision": 0.5570422225858732,
@@ -500,6 +508,10 @@ python v89.py \
   ../input/training_images/
 python v89.py -a tf_efficientnetv2_m_in21ft1k --batch-size 256 --mode extract --gem-eval-p 1.0 --weight ./v89/train/checkpoint_0009.pth.tar --input-size 384 --eval-subset ../input/
 python v89.py -a tf_efficientnetv2_m_in21ft1k --batch-size 256 --mode extract --gem-eval-p 1.0 --weight ./v89/train/checkpoint_0009.pth.tar --input-size 384 --target-set t ../input/
+{
+  "average_precision": 0.6826582777013696,
+  "recall_p90": 0.5812462432378281
+}
 
 
 python v84.py -a tf_efficientnetv2_m_in21ft1k --batch-size 256 --mode extract --gem-eval-p 1.0 --weight ./v84/train/checkpoint_0006.pth.tar --input-size 384 --target-set qr ../input/
@@ -547,6 +559,21 @@ python v93.py \
   --input-size 512 --sample-size 1000000 --memory-size 20000 \
   ../input/training_images/
 python v93.py -a tf_efficientnetv2_m_in21ft1k --batch-size 256 --mode extract --gem-eval-p 1.0 --weight ./v93/train/checkpoint_0006.pth.tar --input-size 512 --eval-subset ../input/
+
+python v94.py \
+  -a tf_efficientnetv2_m_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 999999 \
+  --epochs 10 --lr 0.1 --wd 1e-6 --batch-size 128 --ncrops 2 \
+  --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.1 --weight ./v84/train/checkpoint_0006.pth.tar \
+  --input-size 384 --sample-size 1000000 --memory-size 1000 \
+  ../input/training_images/
+python v94.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract --gem-eval-p 1.0 --weight ./v94/train/checkpoint_0009.pth.tar --input-size 384 --target-set qrt ../input/
+python v95.py \
+  -a tf_efficientnetv2_m_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 9999999 \
+  --epochs 10 --lr 0.1 --wd 1e-6 --batch-size 128 --ncrops 2 \
+  --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.1 --weight ./v84/train/checkpoint_0006.pth.tar \
+  --input-size 512 --sample-size 1000000 --memory-size 1000 \
+  ../input/training_images/
+python v95.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract --gem-eval-p 1.0 --weight ./v95/train/checkpoint_0009.pth.tar --input-size 512 --target-set qrt ../input/
 
 ## ref
 https://github.com/facebookresearch/simsiam
