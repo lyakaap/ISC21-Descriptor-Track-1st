@@ -12,7 +12,6 @@ from pathlib import Path
 
 import h5py
 import numpy as np
-import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -105,7 +104,6 @@ parser.add_argument('--sample-size', default=100000, type=int)
 parser.add_argument('--weight', type=str)
 parser.add_argument('--eval-subset', action='store_true')
 parser.add_argument('--memory-size', default=1024, type=int)
-parser.add_argument('--tta', action='store_true')
 
 
 def gem(x, p=3, eps=1e-6):
@@ -141,31 +139,7 @@ class ISCNet(nn.Module):
         return x
 
 
-class ISCTrainDataset(torch.utils.data.Dataset):
-    def __init__(
-        self,
-        paths,
-        ref_paths,
-        transforms,
-    ):
-        self.paths = paths
-        self.ref_paths = ref_paths
-        self.transforms = transforms
-
-    def __len__(self):
-        return len(self.paths)
-
-    def __getitem__(self, i):
-        path = self.paths[i]
-        ref_path = self.ref_paths[i]
-        image = Image.open(path)
-        image = self.transforms(image)
-        ref_image = Image.open(ref_path)
-        ref_image = self.transforms(ref_image)
-        return i, [image, ref_image]
-
-
-class ISCTestDataset(torch.utils.data.Dataset):
+class ISCDataset(torch.utils.data.Dataset):
     def __init__(
         self,
         paths,
@@ -181,6 +155,34 @@ class ISCTestDataset(torch.utils.data.Dataset):
         image = Image.open(self.paths[i])
         image = self.transforms(image)
         return i, image
+
+
+class ISCDatasetWithRef(torch.utils.data.Dataset):
+    def __init__(
+        self,
+        paths,
+        transforms,
+        ref_paths,
+        ref_transforms,
+    ):
+        self.paths = paths
+        self.transforms = transforms
+        self.ref_paths = ref_paths
+        self.ref_transforms = ref_transforms
+
+    def __len__(self):
+        return len(self.paths)
+
+    def __getitem__(self, i):
+        j1 = random.choice(range(len(self.ref_paths)))
+        j2 = random.choice(range(len(self.ref_paths)))
+        image = Image.open(self.paths[i])
+        image = self.transforms(image)
+        ref_image = [
+            self.ref_transforms(Image.open(self.ref_paths[j1])),
+            self.ref_transforms(Image.open(self.ref_paths[j2])),
+        ]
+        return i, image + ref_image, j1, j2
 
 
 class NCropsTransform:
@@ -457,7 +459,7 @@ def main_worker(gpu, ngpus_per_node, args):
         # DistributedDataParallel will use all available devices.
         if args.gpu is not None:
             torch.cuda.set_device(args.gpu)
-            model.cuda(args.gpu)
+            model = model.cuda(args.gpu)
             # When using a single GPU per process and per
             # DistributedDataParallel, we need to divide the batch size
             # ourselves based on the total number of GPUs we have
@@ -521,19 +523,61 @@ def main_worker(gpu, ngpus_per_node, args):
 
     cudnn.benchmark = True
 
-    gt = pd.read_csv('../input/public_ground_truth.csv')
-    gt_ = gt[gt['reference_id'].notna()]
-    query_paths = [f'../input/query_images/{qid}.jpg' for qid in gt_['query_id']]
-    reference_paths = [f'../input/reference_images/{rid}.jpg' for rid in gt_['reference_id']]
+    train_paths = list(Path(args.data).glob('**/*.jpg'))[:args.sample_size]
 
+    aug_moderate = [
+        transforms.RandomResizedCrop(args.input_size, scale=(0.7, 1.)),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=backbone.default_cfg['mean'], std=backbone.default_cfg['std'])
+    ]
+
+    overlay1 = OverlayOntoScreenshot()
+    overlay2 = OverlayOntoScreenshot(template_filepath=overlay1.template_filepath.replace('web', 'mobile'))
+    aug_list = [
+        transforms.ColorJitter(0.8, 0.8, 0.8, 0.2),
+        RandomPixelization(p=0.25),
+        ShufflePixels(factor=0.1, p=0.25),
+        OneOf([EncodingQuality(quality=q) for q in [10, 20, 30, 50]], p=0.35),
+        transforms.RandomGrayscale(p=0.25),
+        RandomBlur(p=0.25),
+        transforms.RandomPerspective(p=0.35),
+        transforms.RandomHorizontalFlip(p=0.5),
+        transforms.RandomVerticalFlip(p=0.1),
+        RandomOverlayText(p=0.35),
+        RandomEmojiOverlay(p=0.35),
+        OneOf([RandomEdgeEnhance(mode=ImageFilter.EDGE_ENHANCE), RandomEdgeEnhance(mode=ImageFilter.EDGE_ENHANCE_MORE)], p=0.3),
+    ]
+    aug_hard = [
+        RandomRotation(p=0.35),
+        # OneOf([overlay1, overlay2], p=0.01),
+        RandomOverlayImageAndResizedCrop(
+            train_paths, opacity_lower=0.4, size_lower=0.2, size_upper=0.8,
+            input_size=args.input_size, moderate_scale_lower=0.7, hard_scale_lower=0.15, overlay_p=0.1, p=1.0,
+        ),
+        # RandomOverlayImage(opacity_lower=0.5, size_lower=0.3, size_upper=0.7, p=0.075),  # harder
+        # RandomOverlayImage(opacity_lower=0.4, size_lower=0.2, size_upper=0.8, p=0.1),  # harder
+        ShuffledAug(aug_list),
+        convert2rgb,
+        transforms.ToTensor(),
+        transforms.RandomErasing(value='random', p=0.25),
+        transforms.Normalize(mean=backbone.default_cfg['mean'], std=backbone.default_cfg['std']),
+    ]
+
+    reference_paths = list(Path('../input/reference_images/').glob('**/*.jpg'))
     preprocess = transforms.Compose([
         transforms.Resize((args.input_size, args.input_size)),
         transforms.ToTensor(),
         transforms.Normalize(mean=backbone.default_cfg['mean'], std=backbone.default_cfg['std'])
     ])
 
-    train_dataset = ISCTrainDataset(
-        query_paths,
+    train_dataset = ISCDatasetWithRef(
+        train_paths,
+        NCropsTransform(
+            transforms.Compose(aug_moderate),
+            transforms.Compose(aug_hard),
+            args.ncrops,
+        ),
         reference_paths,
         preprocess,
     )
@@ -571,14 +615,14 @@ def train_one_epoch(train_loader, model, loss_fn, optimizer, scaler, epoch, args
 
     model.train()
 
-    for labels, images in progress:
+    for i, images, j1, j2 in progress:
         optimizer.zero_grad()
 
+        labels = torch.cat([torch.tile(i, dims=(args.ncrops,)), j1, j2])
         labels = labels.cuda(args.gpu, non_blocking=True)
         images = torch.cat([
             image for image in images
         ], dim=0).cuda(args.gpu, non_blocking=True)
-        labels = torch.tile(labels, dims=(args.ncrops,))
 
         with torch.cuda.amp.autocast():
             embeddings = model(images)
@@ -637,23 +681,16 @@ def extract(args):
 
     cudnn.benchmark = True
 
-    if args.tta:
-        preprocesses = [
-            transforms.Resize((int(args.input_size * 1.4142135623730951), int(args.input_size * 1.4142135623730951))),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=backbone.default_cfg['mean'], std=backbone.default_cfg['std'])
-        ]
-    else:
-        preprocesses = [
-            transforms.Resize((args.input_size, args.input_size)),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=backbone.default_cfg['mean'], std=backbone.default_cfg['std'])
-        ]
+    preprocesses = [
+        transforms.Resize((args.input_size, args.input_size)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=backbone.default_cfg['mean'], std=backbone.default_cfg['std'])
+    ]
 
     datasets = {
-        'query': ISCTestDataset(query_paths, transforms.Compose(preprocesses)),
-        'reference': ISCTestDataset(reference_paths, transforms.Compose(preprocesses)),
-        'train': ISCTestDataset(train_paths, transforms.Compose(preprocesses)),
+        'query': ISCDataset(query_paths, transforms.Compose(preprocesses)),
+        'reference': ISCDataset(reference_paths, transforms.Compose(preprocesses)),
+        'train': ISCDataset(train_paths, transforms.Compose(preprocesses)),
     }
     loader_kwargs = dict(batch_size=args.batch_size, shuffle=False, num_workers=args.workers, drop_last=False)
     data_loaders = {
@@ -667,19 +704,7 @@ def extract(args):
         for _, image in tqdm(loader, total=len(loader)):
             image = image.cuda()
             with torch.no_grad(), torch.cuda.amp.autocast():
-                if args.tta:
-                    image_big = image
-                    image = F.interpolate(image_big, size=args.input_size, mode='bilinear', align_corners=False)
-                    image_small = F.interpolate(image, scale_factor=0.7071067811865475, mode='bilinear', align_corners=False)
-                    f = (
-                        model(image) + model(image_small) + model(image_big)
-                        + model(transforms.functional.hflip(image))
-                        + model(transforms.functional.hflip(image_small))
-                        + model(transforms.functional.hflip(image_big))
-                    )
-                    f /= torch.linalg.norm(f, dim=1, keepdim=True)
-                else:
-                    f = model(image)
+                f = model(image)
             feats.append(f.cpu().numpy())
         feats = np.concatenate(feats, axis=0)
         return feats.astype(np.float32)

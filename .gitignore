@@ -112,6 +112,7 @@ venv.bak/
 *.csv
 *.npy
 *.tar
+*.bak
 
 input
 output

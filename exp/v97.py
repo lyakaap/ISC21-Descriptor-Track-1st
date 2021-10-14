@@ -105,7 +105,6 @@ parser.add_argument('--sample-size', default=100000, type=int)
 parser.add_argument('--weight', type=str)
 parser.add_argument('--eval-subset', action='store_true')
 parser.add_argument('--memory-size', default=1024, type=int)
-parser.add_argument('--tta', action='store_true')
 
 
 def gem(x, p=3, eps=1e-6):
@@ -637,18 +636,11 @@ def extract(args):
 
     cudnn.benchmark = True
 
-    if args.tta:
-        preprocesses = [
-            transforms.Resize((int(args.input_size * 1.4142135623730951), int(args.input_size * 1.4142135623730951))),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=backbone.default_cfg['mean'], std=backbone.default_cfg['std'])
-        ]
-    else:
-        preprocesses = [
-            transforms.Resize((args.input_size, args.input_size)),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=backbone.default_cfg['mean'], std=backbone.default_cfg['std'])
-        ]
+    preprocesses = [
+        transforms.Resize((args.input_size, args.input_size)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=backbone.default_cfg['mean'], std=backbone.default_cfg['std'])
+    ]
 
     datasets = {
         'query': ISCTestDataset(query_paths, transforms.Compose(preprocesses)),
@@ -667,19 +659,7 @@ def extract(args):
         for _, image in tqdm(loader, total=len(loader)):
             image = image.cuda()
             with torch.no_grad(), torch.cuda.amp.autocast():
-                if args.tta:
-                    image_big = image
-                    image = F.interpolate(image_big, size=args.input_size, mode='bilinear', align_corners=False)
-                    image_small = F.interpolate(image, scale_factor=0.7071067811865475, mode='bilinear', align_corners=False)
-                    f = (
-                        model(image) + model(image_small) + model(image_big)
-                        + model(transforms.functional.hflip(image))
-                        + model(transforms.functional.hflip(image_small))
-                        + model(transforms.functional.hflip(image_big))
-                    )
-                    f /= torch.linalg.norm(f, dim=1, keepdim=True)
-                else:
-                    f = model(image)
+                f = model(image)
             feats.append(f.cpu().numpy())
         feats = np.concatenate(feats, axis=0)
         return feats.astype(np.float32)
