@@ -182,7 +182,7 @@ class ISCDatasetWithRef(torch.utils.data.Dataset):
             self.ref_transforms(Image.open(self.ref_paths[j1])),
             self.ref_transforms(Image.open(self.ref_paths[j2])),
         ]
-        return i, image + ref_image, j1, j2
+        return i, image + ref_image, j1 + 1000000, j2 + 1000000
 
 
 class NCropsTransform:
