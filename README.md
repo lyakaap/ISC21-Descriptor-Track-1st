@@ -96,6 +96,7 @@
 - v96: v94, neg_margin=1.0
 - v97: v95, neg_margin=1.0
 - v98: train with ref(negative) finetuning
+- v99: train with ref(negative) finetuning, neg1.1, ep2
 
 - query trainingをv84からinput_res=512でやる。
 
@@ -387,6 +388,10 @@ for epoch in `seq 4 6`;
 do
   python v93.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract --gem-eval-p 1.0 --weight ./v93/train/checkpoint_000${epoch}.pth.tar --input-size 512 --eval-subset ../input/
 done
+for epoch in `seq 0 0`;
+do
+  python v98.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract --gem-eval-p 1.0 --weight ./v98/train/checkpoint_000${epoch}.pth.tar --input-size 512 --eval-subset ../input/
+done
 python v82.py -a tf_efficientnetv2_m_in21ft1k --batch-size 256 --mode extract --gem-eval-p 1.0 --weight ./v82/train/checkpoint_0001.pth.tar --input-size 256 --target-set qr ../input/
 {
   "average_precision": 0.5570422225858732,
@@ -614,7 +619,26 @@ python v98.py \
   ../input/training_images/
 gsutil -m cp -r v98 gs://fbisc/exp/
 sudo shutdown
-python v98.py -a tf_efficientnetv2_m_in21ft1k --batch-size 256 --mode extract --gem-eval-p 1.0 --weight ./v98/train/checkpoint_0004.pth.tar --input-size 512 --target-set qrt ../input/
+python v98.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract --gem-eval-p 1.0 --weight ./v98/train/checkpoint_0002.pth.tar --input-size 512 --target-set qr ../input/
+{
+  "average_precision": 0.6499580591524714,
+  "recall_p90": 0.572831095972751
+}
+
+python v98.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract --gem-eval-p 1.0 --weight ./v98/train/checkpoint_0001.pth.tar --input-size 512 --target-set qr ../input/
+{
+  "average_precision": 0.6519199107037544,
+  "recall_p90": 0.5710278501302344
+}
+
+python v99.py \
+  -a tf_efficientnetv2_m_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 999 \
+  --epochs 2 --lr 0.1 --wd 1e-6 --batch-size 64 --ncrops 2 \
+  --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.1 --weight ./v86/train/checkpoint_0005.pth.tar \
+  --input-size 512 --sample-size 1000000 --memory-size 20000 \
+  ../input/training_images/
+gsutil -m cp -r v99 gs://fbisc/exp/
+sudo shutdown
 
 ## ref
 https://github.com/facebookresearch/simsiam

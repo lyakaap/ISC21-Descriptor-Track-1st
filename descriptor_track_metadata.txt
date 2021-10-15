@@ -1,0 +1,16 @@
+Please fill out each of the sections below, wherever applicable. Answers are not factored into final rankings.
+--------------------------
+Hardware Image Description
+(the machine on which feature extraction is performed, e.g. 24 core Xeon 2.5MHz, Nvidia P100 GPU, etc)
+
+GCP: a2-megagpu-16g（vCPU x 96, Memory 1,360 GB, Nvidia A100 GPU x 16）
+
+
+Query Image Description Time
+(average time in seconds to analyze one query image and produce the representation)
+
+
+
+Reference Image Description Time
+(average time in seconds to analyze one reference image and produce the representation; may or may not be different from the query image description time)
+
