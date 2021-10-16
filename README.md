@@ -97,6 +97,7 @@
 - v97: v95, neg_margin=1.0
 - v98: train with ref(negative) finetuning
 - v99: train with ref(negative) finetuning, neg1.1, ep2
+- v100: v98 -> query-reference pairを学習
 
 - query trainingをv84からinput_res=512でやる。
 
@@ -107,6 +108,7 @@
 - model5: v88
 - model6: v79 -> v90 -> v91
 - model7: v83 -> v84 -> v92
+- model8: v83 -> v86 -> v98 -> v100
 
 python ../scripts/eval_metrics.py v2/extract/fb-isc-submission.h5 ../input/public_ground_truth.csv
 
@@ -638,7 +640,16 @@ python v99.py \
   --input-size 512 --sample-size 1000000 --memory-size 20000 \
   ../input/training_images/
 gsutil -m cp -r v99 gs://fbisc/exp/
-sudo shutdown
+python v99.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract --gem-eval-p 1.0 --weight ./v99/train/checkpoint_0000.pth.tar --input-size 512 --target-set qr ../input/
+python v99.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract --gem-eval-p 1.0 --weight ./v99/train/checkpoint_0001.pth.tar --input-size 512 --target-set qr ../input/
+
+python v100.py \
+  -a tf_efficientnetv2_m_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 99999 \
+  --epochs 10 --lr 0.1 --wd 1e-6 --batch-size 128 --ncrops 2 \
+  --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.1 --weight ./v98/train/checkpoint_0001.pth.tar \
+  --input-size 512 --sample-size 1000000 --memory-size 1000 \
+  ../input/training_images/
+python v100.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract --gem-eval-p 1.0 --weight ./v100/train/checkpoint_0009.pth.tar --input-size 512 --eval-subset ../input/
 
 ## ref
 https://github.com/facebookresearch/simsiam
