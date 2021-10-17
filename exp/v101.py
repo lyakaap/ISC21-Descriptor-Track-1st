@@ -165,14 +165,14 @@ class ISCTrainDataset(torch.utils.data.Dataset):
         ref_image = Image.open(ref_path)
         ref_image = self.transforms(ref_image)
 
-        j1 = random.choice(range(len(self.ref_paths)))
-        j2 = random.choice(range(len(self.ref_paths)))
+        j1 = random.choice(range(len(self.ref_paths2)))
+        j2 = random.choice(range(len(self.ref_paths2)))
 
         ret = [
             image,
             ref_image,
-            self.transforms(Image.open(self.ref_paths[j1])),
-            self.transforms(Image.open(self.ref_paths[j2])),
+            self.transforms(Image.open(self.ref_paths2[j1])),
+            self.transforms(Image.open(self.ref_paths2[j2])),
         ]
 
         return i, ret, j1 + 1000000, j2 + 1000000

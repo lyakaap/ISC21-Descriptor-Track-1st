@@ -165,22 +165,22 @@ class ISCTrainDataset(torch.utils.data.Dataset):
         ref_image = Image.open(ref_path)
         ref_image = self.transforms(ref_image)
 
-        j1 = random.choice(range(len(self.ref_paths)))
-        j2 = random.choice(range(len(self.ref_paths)))
-        j3 = random.choice(range(len(self.ref_paths)))
-        j4 = random.choice(range(len(self.ref_paths)))
-        j5 = random.choice(range(len(self.ref_paths)))
-        j6 = random.choice(range(len(self.ref_paths)))
+        j1 = random.choice(range(len(self.ref_paths2)))
+        j2 = random.choice(range(len(self.ref_paths2)))
+        j3 = random.choice(range(len(self.ref_paths2)))
+        j4 = random.choice(range(len(self.ref_paths2)))
+        j5 = random.choice(range(len(self.ref_paths2)))
+        j6 = random.choice(range(len(self.ref_paths2)))
 
         ret = [
             image,
             ref_image,
-            self.transforms(Image.open(self.ref_paths[j1])),
-            self.transforms(Image.open(self.ref_paths[j2])),
-            self.transforms(Image.open(self.ref_paths[j3])),
-            self.transforms(Image.open(self.ref_paths[j4])),
-            self.transforms(Image.open(self.ref_paths[j5])),
-            self.transforms(Image.open(self.ref_paths[j6])),
+            self.transforms(Image.open(self.ref_paths2[j1])),
+            self.transforms(Image.open(self.ref_paths2[j2])),
+            self.transforms(Image.open(self.ref_paths2[j3])),
+            self.transforms(Image.open(self.ref_paths2[j4])),
+            self.transforms(Image.open(self.ref_paths2[j5])),
+            self.transforms(Image.open(self.ref_paths2[j6])),
         ]
 
         return i, ret, j1 + 1000000, j2 + 1000000, j3 + 1000000, j4 + 1000000, j5 + 1000000, j6 + 1000000
