@@ -171,8 +171,8 @@ class ISCTrainDataset(torch.utils.data.Dataset):
         ret = [
             image,
             ref_image,
-            self.ref_transforms(Image.open(self.ref_paths[j1])),
-            self.ref_transforms(Image.open(self.ref_paths[j2])),
+            self.transforms(Image.open(self.ref_paths[j1])),
+            self.transforms(Image.open(self.ref_paths[j2])),
         ]
 
         return i, ret, j1 + 1000000, j2 + 1000000

@@ -175,12 +175,12 @@ class ISCTrainDataset(torch.utils.data.Dataset):
         ret = [
             image,
             ref_image,
-            self.ref_transforms(Image.open(self.ref_paths[j1])),
-            self.ref_transforms(Image.open(self.ref_paths[j2])),
-            self.ref_transforms(Image.open(self.ref_paths[j3])),
-            self.ref_transforms(Image.open(self.ref_paths[j4])),
-            self.ref_transforms(Image.open(self.ref_paths[j5])),
-            self.ref_transforms(Image.open(self.ref_paths[j6])),
+            self.transforms(Image.open(self.ref_paths[j1])),
+            self.transforms(Image.open(self.ref_paths[j2])),
+            self.transforms(Image.open(self.ref_paths[j3])),
+            self.transforms(Image.open(self.ref_paths[j4])),
+            self.transforms(Image.open(self.ref_paths[j5])),
+            self.transforms(Image.open(self.ref_paths[j6])),
         ]
 
         return i, ret, j1 + 1000000, j2 + 1000000, j3 + 1000000, j4 + 1000000, j5 + 1000000, j6 + 1000000
