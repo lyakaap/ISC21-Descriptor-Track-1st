@@ -100,6 +100,7 @@
 - v100: v98 -> query-reference pairを学習
 - v101: v98 -> query-reference pairを学習 with neg ref
 - v102: v98 -> query-reference pairを学習 with neg ref, x8
+- v103: v98 -> query-reference pairを学習 with neg ref, x16
 
 - query trainingをv84からinput_res=512でやる。
 
@@ -670,16 +671,32 @@ python v101.py \
   ../input/training_images/
 python v101.py -a tf_efficientnetv2_m_in21ft1k --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v101/train/checkpoint_0009.pth.tar --input-size 512 --eval-subset ../input/
 python v101.py -a tf_efficientnetv2_m_in21ft1k --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v101/train/checkpoint_0009.pth.tar --input-size 512 --target-set qr ../input/
-
+{
+  "average_precision": 0.788527565890466,
+  "recall_p90": 0.7501502704868763
+}
 
 python v102.py \
   -a tf_efficientnetv2_m_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 99999 \
-  --epochs 10 --lr 0.1 --wd 1e-6 --batch-size 16 --ncrops 2 \
+  --epochs 10 --lr 0.1 --wd 1e-6 --batch-size 32 --ncrops 2 \
   --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.1 --weight ./v98/train/checkpoint_0001.pth.tar \
   --input-size 512 --sample-size 1000000 --memory-size 1000 \
   ../input/training_images/
 python v102.py -a tf_efficientnetv2_m_in21ft1k --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v102/train/checkpoint_0009.pth.tar --input-size 512 --eval-subset ../input/
 python v102.py -a tf_efficientnetv2_m_in21ft1k --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v102/train/checkpoint_0009.pth.tar --input-size 512 --target-set qr ../input/
+{
+  "average_precision": 0.8144373167650504,
+  "recall_p90": 0.7796032859146463
+}
+
+python v103.py \
+  -a tf_efficientnetv2_m_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 99999 \
+  --epochs 10 --lr 0.1 --wd 1e-6 --batch-size 16 --ncrops 2 \
+  --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.1 --weight ./v98/train/checkpoint_0001.pth.tar \
+  --input-size 512 --sample-size 1000000 --memory-size 1000 \
+  ../input/training_images/
+python v103.py -a tf_efficientnetv2_m_in21ft1k --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v103/train/checkpoint_0009.pth.tar --input-size 512 --eval-subset ../input/
+python v103.py -a tf_efficientnetv2_m_in21ft1k --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v103/train/checkpoint_0009.pth.tar --input-size 512 --target-set qr ../input/
 
 
 v100と同じ設定、batchsize半分にした結果
