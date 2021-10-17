@@ -101,6 +101,7 @@
 - v101: v98 -> query-reference pairを学習 with neg ref
 - v102: v98 -> query-reference pairを学習 with neg ref, x8
 - v103: v98 -> query-reference pairを学習 with neg ref, x16
+- v104: v98 -> query-reference pairを学習 with neg ref, x32
 
 - query trainingをv84からinput_res=512でやる。
 
@@ -697,17 +698,26 @@ python v103.py \
   ../input/training_images/
 python v103.py -a tf_efficientnetv2_m_in21ft1k --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v103/train/checkpoint_0009.pth.tar --input-size 512 --eval-subset ../input/
 python v103.py -a tf_efficientnetv2_m_in21ft1k --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v103/train/checkpoint_0009.pth.tar --input-size 512 --target-set qr ../input/
-
-
-v100と同じ設定、batchsize半分にした結果
 {
-  "average_precision": 0.7777128373478737,
-  "recall_p90": 0.7385293528351032
+  "average_precision": 0.8559403478755391,
+  "recall_p90": 0.820476858345021
 }
 {
-  "average_precision": 0.7154294900872266,
-  "recall_p90": 0.6215187337206972
+  "average_precision": 0.7932400790392375,
+  "recall_p90": 0.6888399118413143
 }
+
+python v104.py \
+  -a tf_efficientnetv2_m_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 99999 \
+  --epochs 10 --lr 0.1 --wd 1e-6 --batch-size 8 --ncrops 2 \
+  --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.1 --weight ./v98/train/checkpoint_0001.pth.tar \
+  --input-size 512 --sample-size 1000000 --memory-size 1000 \
+  ../input/training_images/
+python v104.py -a tf_efficientnetv2_m_in21ft1k --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v104/train/checkpoint_0009.pth.tar --input-size 512 --eval-subset ../input/
+python v104.py -a tf_efficientnetv2_m_in21ft1k --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v104/train/checkpoint_0009.pth.tar --input-size 512 --target-set qr ../input/
+
+
+batch_size, lrいじる
 
 ## ref
 https://github.com/facebookresearch/simsiam
