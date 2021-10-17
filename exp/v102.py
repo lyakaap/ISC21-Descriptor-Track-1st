@@ -167,15 +167,23 @@ class ISCTrainDataset(torch.utils.data.Dataset):
 
         j1 = random.choice(range(len(self.ref_paths)))
         j2 = random.choice(range(len(self.ref_paths)))
+        j3 = random.choice(range(len(self.ref_paths)))
+        j4 = random.choice(range(len(self.ref_paths)))
+        j5 = random.choice(range(len(self.ref_paths)))
+        j6 = random.choice(range(len(self.ref_paths)))
 
         ret = [
             image,
             ref_image,
             self.ref_transforms(Image.open(self.ref_paths[j1])),
             self.ref_transforms(Image.open(self.ref_paths[j2])),
+            self.ref_transforms(Image.open(self.ref_paths[j3])),
+            self.ref_transforms(Image.open(self.ref_paths[j4])),
+            self.ref_transforms(Image.open(self.ref_paths[j5])),
+            self.ref_transforms(Image.open(self.ref_paths[j6])),
         ]
 
-        return i, ret, j1 + 1000000, j2 + 1000000
+        return i, ret, j1 + 1000000, j2 + 1000000, j3 + 1000000, j4 + 1000000, j5 + 1000000, j6 + 1000000
 
 
 class ISCTestDataset(torch.utils.data.Dataset):
@@ -588,10 +596,10 @@ def train_one_epoch(train_loader, model, loss_fn, optimizer, scaler, epoch, args
 
     model.train()
 
-    for i, images, j1, j2 in progress:
+    for i, images, j1, j2, j3, j4, j5, j6 in progress:
         optimizer.zero_grad()
 
-        labels = torch.cat([torch.tile(i, dims=(args.ncrops,)), j1, j2])
+        labels = torch.cat([torch.tile(i, dims=(args.ncrops,)), j1, j2, j3, j4, j5, j6])
         labels = labels.cuda(args.gpu, non_blocking=True)
         images = torch.cat([
             image for image in images

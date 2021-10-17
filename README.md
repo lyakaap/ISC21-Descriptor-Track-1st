@@ -98,6 +98,8 @@
 - v98: train with ref(negative) finetuning
 - v99: train with ref(negative) finetuning, neg1.1, ep2
 - v100: v98 -> query-reference pairを学習
+- v101: v98 -> query-reference pairを学習 with neg ref
+- v102: v98 -> query-reference pairを学習 with neg ref, x8
 
 - query trainingをv84からinput_res=512でやる。
 
@@ -650,6 +652,46 @@ python v100.py \
   --input-size 512 --sample-size 1000000 --memory-size 1000 \
   ../input/training_images/
 python v100.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract --gem-eval-p 1.0 --weight ./v100/train/checkpoint_0009.pth.tar --input-size 512 --eval-subset ../input/
+{
+  "average_precision": 0.7618338112257139,
+  "recall_p90": 0.7200961731116009
+}
+python v100.py -a tf_efficientnetv2_m_in21ft1k --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v100/train/checkpoint_0009.pth.tar --input-size 512 --target-set qr ../input/
+{
+  "average_precision": 0.7007949228921966,
+  "recall_p90": 0.6131035864556201
+}
+
+python v101.py \
+  -a tf_efficientnetv2_m_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 99999 \
+  --epochs 10 --lr 0.1 --wd 1e-6 --batch-size 64 --ncrops 2 \
+  --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.1 --weight ./v98/train/checkpoint_0001.pth.tar \
+  --input-size 512 --sample-size 1000000 --memory-size 1000 \
+  ../input/training_images/
+python v101.py -a tf_efficientnetv2_m_in21ft1k --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v101/train/checkpoint_0009.pth.tar --input-size 512 --eval-subset ../input/
+python v101.py -a tf_efficientnetv2_m_in21ft1k --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v101/train/checkpoint_0009.pth.tar --input-size 512 --target-set qr ../input/
+{
+  "average_precision": 0.7777128373478737,
+  "recall_p90": 0.7385293528351032
+}
+(fbisc) shuhei.yokoo@fbisc4:~/fbisc/exp$ python v101.py -a tf_efficientnetv2_m_in21ft1k --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v101/train/checkpoint_0009.pth.tar --input-size 512 --target-set qr ../input/
+100%|█████████████████████████████████████████████████████████████| 98/98 [03:50<00:00,  2.35s/it]
+ 21%|████████████▎                                             | 415/1954 [11:18<35:51,  1.40s 21%|████████████▎                                             | 416/1954 [11:19<35:10,  1.37s
+21%|████████████▍                                             | 417/1954 [11:21<38:02,  1.48s 21%|████████████▍                                             | 418/1954 [11:22<36:52,  1.44s/i100%|█████████████████████████████████████████████████████████| 1954/1954 [48:03<00:00,  1.48s/it]
+{
+  "average_precision": 0.7154294900872266,
+  "recall_p90": 0.6215187337206972
+}
+
+python v102.py \
+  -a tf_efficientnetv2_m_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 99999 \
+  --epochs 10 --lr 0.1 --wd 1e-6 --batch-size 32 --ncrops 2 \
+  --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.1 --weight ./v98/train/checkpoint_0001.pth.tar \
+  --input-size 512 --sample-size 1000000 --memory-size 1000 \
+  ../input/training_images/
+python v102.py -a tf_efficientnetv2_m_in21ft1k --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v102/train/checkpoint_0009.pth.tar --input-size 512 --eval-subset ../input/
+python v102.py -a tf_efficientnetv2_m_in21ft1k --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v102/train/checkpoint_0009.pth.tar --input-size 512 --target-set qr ../input/
+
 
 ## ref
 https://github.com/facebookresearch/simsiam
