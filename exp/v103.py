@@ -592,7 +592,7 @@ def train_one_epoch(train_loader, model, loss_fn, optimizer, scaler, epoch, args
     for i, images, j in progress:
         optimizer.zero_grad()
 
-        labels = torch.cat([torch.tile(i, dims=(args.ncrops,)), j])
+        labels = torch.cat([torch.tile(i, dims=(args.ncrops,)), torch.tensor(j)])
         labels = labels.cuda(args.gpu, non_blocking=True)
         images = torch.cat([
             image for image in images
