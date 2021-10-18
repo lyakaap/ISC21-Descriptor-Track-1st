@@ -107,6 +107,8 @@
 - v106: v98 -> query-reference pairを学習 with neg ref, x32, lr=0.4
 - v106: v98 -> query-reference pairを学習 with neg ref, x32, lr=0.4
 - v106: v98 -> query-reference pairを学習 with neg ref, x32, lr=0.4
+- v110: v98 -> query-reference pairを学習 with neg ref, x32, lr=0.4
+
 
 - query trainingをv84からinput_res=512でやる。
 
@@ -791,6 +793,10 @@ python v107.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract -
   "average_precision": 0.9676346030079946,
   "recall_p90": 0.9541174113404127
 }
+{
+  "average_precision": 0.9399111736066676,
+  "recall_p90": 0.8964135443798837
+}
 
 python v108.py \
   -a tf_efficientnetv2_m_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 99999 \
@@ -813,6 +819,19 @@ python v109.py \
   ../input/training_images/
 python v109.py -a tf_efficientnetv2_m_in21ft1k --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v109/train/checkpoint_0009.pth.tar --input-size 512 --eval-subset ../input/
 python v109.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract --gem-eval-p 1.0 --weight ./v109/train/checkpoint_0009.pth.tar --input-size 512 --target-set qrt ../input/
+{
+  "average_precision": 0.9903292967079874,
+  "recall_p90": 0.9861751152073732
+}
+
+python v110.py \
+  -a tf_efficientnetv2_m_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 99999 \
+  --epochs 10 --lr 1.0 --wd 1e-6 --batch-size 16 --ncrops 2 \
+  --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.1 --weight ./v98/train/checkpoint_0001.pth.tar \
+  --input-size 640 --sample-size 1000000 --memory-size 1000 \
+  ../input/training_images/
+python v110.py -a tf_efficientnetv2_m_in21ft1k --batch-size 640 --mode extract --gem-eval-p 1.0 --weight ./v110/train/checkpoint_0009.pth.tar --input-size 640 --eval-subset ../input/
+python v110.py -a tf_efficientnetv2_m_in21ft1k --batch-size 640 --mode extract --gem-eval-p 1.0 --weight ./v110/train/checkpoint_0009.pth.tar --input-size 512 --target-set qrt ../input/
 
 ## ref
 https://github.com/facebookresearch/simsiam
