@@ -716,17 +716,14 @@ python v104.py \
   --input-size 512 --sample-size 1000000 --memory-size 1000 \
   ../input/training_images/
 python v104.py -a tf_efficientnetv2_m_in21ft1k --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v104/train/checkpoint_0009.pth.tar --input-size 512 --eval-subset ../input/
-python v104.py -a tf_efficientnetv2_m_in21ft1k --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v104/train/checkpoint_0009.pth.tar --input-size 512 --target-set qr ../input/
-
-lr=0.1
-{
-  "average_precision": 0.8580988710788827,
-  "recall_p90": 0.8238829893808856
-}
-lr=0.2
+python v104.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract --gem-eval-p 1.0 --weight ./v104/train/checkpoint_0009.pth.tar --input-size 512 --target-set qrt ../input/
 {
   "average_precision": 0.9083907640116416,
   "recall_p90": 0.8859947906231216
+}
+{
+  "average_precision": 0.8567829369192675,
+  "recall_p90": 0.757964335804448
 }
 
 python v105.py \
@@ -736,7 +733,16 @@ python v105.py \
   --input-size 512 --sample-size 1000000 --memory-size 1000 \
   ../input/training_images/
 python v105.py -a tf_efficientnetv2_m_in21ft1k --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v105/train/checkpoint_0009.pth.tar --input-size 512 --eval-subset ../input/
-python v105.py -a tf_efficientnetv2_m_in21ft1k --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v105/train/checkpoint_0009.pth.tar --input-size 512 --target-set qr ../input/
+python v105.py -a tf_efficientnetv2_m_in21ft1k --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v105/train/checkpoint_0009.pth.tar --input-size 512 --target-set qrt ../input/
+{
+  "average_precision": 0.9363638667723998,
+  "recall_p90": 0.9196553796834301
+}
+{
+  "average_precision": 0.8944961149903653,
+  "recall_p90": 0.81526748146664
+}
+
 
 python v106.py \
   -a tf_efficientnetv2_m_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 99999 \
@@ -745,9 +751,40 @@ python v106.py \
   --input-size 512 --sample-size 1000000 --memory-size 1000 \
   ../input/training_images/
 python v106.py -a tf_efficientnetv2_m_in21ft1k --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v106/train/checkpoint_0009.pth.tar --input-size 512 --eval-subset ../input/
-python v106.py -a tf_efficientnetv2_m_in21ft1k --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v106/train/checkpoint_0009.pth.tar --input-size 512 --target-set qr ../input/
+{
+  "average_precision": 0.9536196758022021,
+  "recall_p90": 0.939491083951112
+}
+{
+  "average_precision": 0.9211411474436273,
+  "recall_p90": 0.8659587257062713
+}
+emb-iso
+{
+  "average_precision": 0.9306235035379359,
+  "recall_p90": 0.9028250851532759
+}
 
-batch_size, lrいじる
+csv
+{
+  "average_precision": 0.9212168067580401,
+  "recall_p90": 0.8659587257062713
+}
+
+
+python v104.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract --gem-eval-p 1.0 --weight ./v104/train/checkpoint_0009.pth.tar --input-size 512 --target-set t ../input/
+python v105.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract --gem-eval-p 1.0 --weight ./v105/train/checkpoint_0009.pth.tar --input-size 512 --target-set t ../input/
+python v106.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract --gem-eval-p 1.0 --weight ./v106/train/checkpoint_0009.pth.tar --input-size 512 --target-set qrt ../input/
+
+python v107.py \
+  -a tf_efficientnetv2_m_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 99999 \
+  --epochs 10 --lr 0.5 --wd 1e-6 --batch-size 16 --ncrops 2 \
+  --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.1 --weight ./v98/train/checkpoint_0001.pth.tar \
+  --input-size 512 --sample-size 1000000 --memory-size 1000 \
+  ../input/training_images/
+python v107.py -a tf_efficientnetv2_m_in21ft1k --batch-size 512 --mode extract --gem-eval-p 1.0 --weight ./v107/train/checkpoint_0009.pth.tar --input-size 512 --eval-subset ../input/
+python v107.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract --gem-eval-p 1.0 --weight ./v107/train/checkpoint_0009.pth.tar --input-size 512 --target-set qrt ../input/
+
 
 ## ref
 https://github.com/facebookresearch/simsiam
