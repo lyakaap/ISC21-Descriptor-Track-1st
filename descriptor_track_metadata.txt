@@ -9,8 +9,10 @@ GCP: a2-megagpu-16g（vCPU x 96, Memory 1,360 GB, Nvidia A100 GPU x 16）
 Query Image Description Time
 (average time in seconds to analyze one query image and produce the representation)
 
+0.0055sec
 
 
 Reference Image Description Time
 (average time in seconds to analyze one reference image and produce the representation; may or may not be different from the query image description time)
 
+0.0055sec

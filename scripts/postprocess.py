@@ -28,7 +28,7 @@ versions = [
     # 'v75',
     # 'v85',
     # 'v87',
-    'v105',
+    'v110',
 ]
 qs = []
 rs = []
@@ -44,29 +44,29 @@ query = np.concatenate(qs, axis=1)
 reference = np.concatenate(rs, axis=1)
 train = np.concatenate(ts, axis=1)
 
-query /= np.linalg.norm(query, axis=1, keepdims=True)
-reference /= np.linalg.norm(reference, axis=1, keepdims=True)
-train /= np.linalg.norm(train, axis=1, keepdims=True)
+# query /= np.linalg.norm(query, axis=1, keepdims=True)
+# reference /= np.linalg.norm(reference, axis=1, keepdims=True)
+# train /= np.linalg.norm(train, axis=1, keepdims=True)
 
-pca = TruncatedSVD(n_components=256, random_state=0)
-pca.fit(train)
-query = pca.transform(query).astype('float32')
-reference = pca.transform(reference).astype('float32')
-train = pca.transform(train).astype('float32')
+# pca = TruncatedSVD(n_components=256, random_state=0)
+# pca.fit(train)
+# query = pca.transform(query).astype('float32')
+# reference = pca.transform(reference).astype('float32')
+# train = pca.transform(train).astype('float32')
 
-query /= np.linalg.norm(query, axis=1, keepdims=True)
-reference /= np.linalg.norm(reference, axis=1, keepdims=True)
-train /= np.linalg.norm(train, axis=1, keepdims=True)
+# query /= np.linalg.norm(query, axis=1, keepdims=True)
+# reference /= np.linalg.norm(reference, axis=1, keepdims=True)
+# train /= np.linalg.norm(train, axis=1, keepdims=True)
 
-out = f'../output/cat_norm_pca_norm_eval.h5'
-with h5py.File(out, 'w') as f:
-    f.create_dataset('query', data=query)
-    f.create_dataset('reference', data=reference)
-    f.create_dataset('train', data=train)
-    f.create_dataset('query_ids', data=np.array(query_ids, dtype='S6'))
-    f.create_dataset('reference_ids', data=np.array(reference_ids, dtype='S7'))
+# out = f'../output/cat_norm_pca_norm_eval.h5'
+# with h5py.File(out, 'w') as f:
+#     f.create_dataset('query', data=query)
+#     f.create_dataset('reference', data=reference)
+#     f.create_dataset('train', data=train)
+#     f.create_dataset('query_ids', data=np.array(query_ids, dtype='S6'))
+#     f.create_dataset('reference_ids', data=np.array(reference_ids, dtype='S7'))
 
-query, reference, train, query_ids, reference_ids = load_descriptor_h5(f'../output/cat_norm_pca_norm_eval.h5')
+# query, reference, train, query_ids, reference_ids = load_descriptor_h5(f'../output/cat_norm_pca_norm_eval.h5')
 
 index_train = faiss.IndexFlatIP(train.shape[1])
 ngpu = faiss.get_num_gpus()
@@ -119,7 +119,7 @@ index_reference = faiss.index_cpu_to_all_gpus(index_reference, co=co, ngpu=ngpu)
 index_reference.add(_reference)
 reference_dist, reference_ind = index_reference.search(_query, k=10)
 
-out = f'../output/tmp.h5'
+out = f'../exp/{versions[0]}/extract/{versions[0]}_iso.h5'
 with h5py.File(out, 'w') as f:
     f.create_dataset('query', data=_query)
     f.create_dataset('reference', data=_reference)
@@ -130,8 +130,7 @@ submission = pd.DataFrame(columns=['query_id', 'reference_id', 'score'])
 submission['query_id'] = np.repeat(query_ids, 10)
 submission['reference_id'] = np.array(reference_ids)[reference_ind.ravel()]
 submission['score'] = - reference_dist.ravel()
-# submission.to_csv('../output/cat_norm_pca_norm_iso.csv', index=False)
-submission.to_csv('../output/tmp.csv', index=False)
+submission.to_csv(out.replace('.h5', '.csv'), index=False)
 
 
 beta = 0.5
@@ -149,4 +148,4 @@ submission['score'] = - reference_dist.ravel()
 query_ind = submission['query_id'].map(lambda x: x[1:]).astype(int).values
 # reference_ind = submission['reference_id'].map(lambda x: x[1:]).astype(int).values
 submission['score'] -= sq[query_ind] * beta
-submission.to_csv('v87/extract/tmp.csv', index=False)
+submission.to_csv(f'../exp/{versions[0]}/extract/{versions[0]}_iso_norm.csv', index=False)
