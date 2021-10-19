@@ -70,12 +70,15 @@ python v107.py \
 
 ## inference
 
+Note that faiss doesn't work with A100, so I used 4x GTX 1080 Ti for post-process.
+
 ```
 cd exp
 
 python v107.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract --gem-eval-p 1.0 --weight ./v107/train/checkpoint_0009.pth.tar --input-size 512 --target-set qrt ../input/
 
-python ../scripts/postprocess.py  # this script generates final prediction result files
+# this script generates final prediction result files
+python ../scripts/postprocess.py
 ```
 
 Submission files are outputted here:
@@ -83,8 +86,20 @@ Submission files are outputted here:
 - `exp/v107/extract/v107_iso.h5`  # descriptor track
 - `exp/v107/extract/v107_iso.csv`  # matching track
 
-score:
+descriptor track local evaluation score:
+
+```
 {
   "average_precision": 0.9479039085717805,
   "recall_p90": 0.9192546583850931
 }
+```
+
+matching track local evaluation score:
+
+```
+{
+  "average_precision": 0.9479246965365696,
+  "recall_p90": 0.9192546583850931
+}
+```

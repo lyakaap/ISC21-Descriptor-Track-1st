@@ -24,10 +24,10 @@ def load_descriptor_h5(descs_submission_path):
 
 
 versions = [
-    'v106',
+    # 'v106',
     'v107',
-    'v108',
-    'v110',
+    # 'v108',
+    # 'v110',
 ]
 qs = []
 rs = []
@@ -129,20 +129,19 @@ submission['reference_id'] = np.array(reference_ids)[reference_ind.ravel()]
 submission['score'] = - reference_dist.ravel()
 submission.to_csv(out.replace('.h5', '.csv'), index=False)
 
+# beta = 0.5
+# tn = 3
+# query_train_sim, query_train_ind = index_train.search(_query, tn)
+# # reference_train_sim, reference_train_ind = index_train.search(_reference, tn)
+# sq = query_train_sim[:, :tn].mean(axis=1)
+# # sr = reference_train_sim[:, :tn].mean(axis=1)
 
-beta = 0.5
-tn = 3
-query_train_sim, query_train_ind = index_train.search(_query, tn)
-# reference_train_sim, reference_train_ind = index_train.search(_reference, tn)
-sq = query_train_sim[:, :tn].mean(axis=1)
-# sr = reference_train_sim[:, :tn].mean(axis=1)
+# submission = pd.DataFrame(columns=['query_id', 'reference_id', 'score'])
+# submission['query_id'] = np.repeat(query_ids, 10)
+# submission['reference_id'] = np.array(reference_ids)[reference_ind.ravel()]
+# submission['score'] = - reference_dist.ravel()
 
-submission = pd.DataFrame(columns=['query_id', 'reference_id', 'score'])
-submission['query_id'] = np.repeat(query_ids, 10)
-submission['reference_id'] = np.array(reference_ids)[reference_ind.ravel()]
-submission['score'] = - reference_dist.ravel()
-
-query_ind = submission['query_id'].map(lambda x: x[1:]).astype(int).values
-# reference_ind = submission['reference_id'].map(lambda x: x[1:]).astype(int).values
-submission['score'] -= sq[query_ind] * beta
-submission.to_csv(f'../exp/{versions[0]}/extract/{versions[0]}_iso_norm.csv', index=False)
+# query_ind = submission['query_id'].map(lambda x: x[1:]).astype(int).values
+# # reference_ind = submission['reference_id'].map(lambda x: x[1:]).astype(int).values
+# submission['score'] -= sq[query_ind] * beta
+# submission.to_csv(f'../exp/{versions[0]}/extract/{versions[0]}_iso_norm.csv', index=False)
