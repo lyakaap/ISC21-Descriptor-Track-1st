@@ -841,6 +841,11 @@ python v110.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract -
   "average_precision": 0.9774717822842622,
   "recall_p90": 0.9565217391304348
 }
+iso
+{
+  "average_precision": 0.9830442992473519,
+  "recall_p90": 0.9675415748347025
+}
 
 
 ## ref

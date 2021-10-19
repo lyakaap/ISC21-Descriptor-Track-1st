@@ -24,10 +24,9 @@ def load_descriptor_h5(descs_submission_path):
 
 
 versions = [
-    # 'v72',
-    # 'v75',
-    # 'v85',
-    # 'v87',
+    'v106',
+    'v107',
+    'v108',
     'v110',
 ]
 qs = []
@@ -98,7 +97,7 @@ def embedding_isolation(embedding, train, index, beta, k, num_iter):
 
 q_beta = 0.35
 q_k = 10
-q_num_iter = 3
+q_num_iter = 1
 
 r_beta = 0.35
 r_k = 10
@@ -108,8 +107,6 @@ _query = query
 _reference = reference
 _query = embedding_isolation(_query, _train, index_train, q_beta, q_k, q_num_iter)
 _reference = embedding_isolation(_reference, _train, index_train, r_beta, r_k, r_num_iter)
-# _query = embedding_isolation(_query, train, index_train, q_beta, q_k, q_num_iter)
-# _reference = embedding_isolation(_reference, train, index_train, r_beta, r_k, r_num_iter)
 
 index_reference = faiss.IndexFlatL2(_reference.shape[1])
 ngpu = faiss.get_num_gpus()
