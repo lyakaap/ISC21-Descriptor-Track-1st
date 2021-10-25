@@ -24,8 +24,8 @@ def load_descriptor_h5(descs_submission_path):
 
 
 versions = [
-    'v106',
-    # 'v107',
+    # 'v106',
+    'v107',
     # 'v108',
     # 'v110',
 ]
