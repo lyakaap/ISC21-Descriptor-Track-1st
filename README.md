@@ -13,7 +13,7 @@ Ubuntu 18.04
 Run this for python env
 
 ```
-pip install -r requirements.txt
+conda env create -f environment.yml
 ```
 
 ### data download
@@ -23,6 +23,7 @@ mkdir -p input/{query,reference,train}_images
 aws s3 cp s3://drivendata-competition-fb-isc-data/all/query_images/ input/query_images/ --recursive --no-sign-request
 aws s3 cp s3://drivendata-competition-fb-isc-data/all/reference_images/ input/reference_images/ --recursive --no-sign-request
 aws s3 cp s3://drivendata-competition-fb-isc-data/all/train_images/ input/train_images/ --recursive --no-sign-request
+aws s3 cp s3://drivendata-competition-fb-isc-data/all/query_images_phase2/ input/query_images_phase2/ --recursive --no-sign-request
 ```
 
 ## train
@@ -66,6 +67,15 @@ python v107.py \
   --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.1 --weight ./v98/train/checkpoint_0001.pth.tar \
   --input-size 512 --sample-size 1000000 --memory-size 1000 \
   ../input/training_images/
+```
+
+The final model weight can be downloaded from here: https://drive.google.com/file/d/1ySea-NJp_J0aWvma_WmVbc3Hnwf5LHUf/view?usp=sharing
+You can execute inference code without run training with this model weight.
+To locate the model weight to suitable location, run following commands after downloaded the model weight.
+
+```
+mkdir -p exp/v107/train
+mv checkpoint_009.pth.tar exp/v107/train/
 ```
 
 ## inference

@@ -33,8 +33,8 @@ qs = []
 rs = []
 ts = []
 for ver in versions:
-    _query, _reference, _, query_ids, reference_ids = load_descriptor_h5(f'{ver}/extract/fb-isc-submission.h5')
-    _train = np.load(f'{ver}/extract/train_feats.npy')
+    _query, _reference, _, query_ids, reference_ids = load_descriptor_h5(f'{ver}/extract/fb-isc-submission-phase2.h5')
+    _train = np.load(f'{ver}/extract/train_feats_phase2.npy')
     qs.append(_query)
     rs.append(_reference)
     ts.append(_train)
@@ -116,7 +116,7 @@ index_reference = faiss.index_cpu_to_all_gpus(index_reference, co=co, ngpu=ngpu)
 index_reference.add(_reference)
 reference_dist, reference_ind = index_reference.search(_query, k=10)
 
-out = f'../exp/{versions[0]}/extract/{versions[0]}_iso.h5'
+out = f'../exp/{versions[0]}/extract/{versions[0]}_iso_phase2.h5'
 with h5py.File(out, 'w') as f:
     f.create_dataset('query', data=_query)
     f.create_dataset('reference', data=_reference)

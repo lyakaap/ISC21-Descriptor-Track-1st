@@ -616,7 +616,7 @@ def train_one_epoch(train_loader, model, loss_fn, optimizer, scaler, epoch, args
 def extract(args):
 
     if 'q' in args.target_set:
-        query_paths = sorted(Path(args.data).glob('query_images/**/*.jpg'))
+        query_paths = sorted(Path(args.data).glob('query_images_phase2/**/*.jpg'))
         query_ids = np.array([p.stem for p in query_paths], dtype='S6')
     else:
         query_paths = None
@@ -706,7 +706,7 @@ def extract(args):
         query_feats = calc_feats(data_loaders['query'])
         reference_feats = calc_feats(data_loaders['reference'])
 
-        out = f'{ver}/extract/fb-isc-submission.h5'
+        out = f'{ver}/extract/fb-isc-submission-phase2.h5'
         with h5py.File(out, 'w') as f:
             f.create_dataset('query', data=query_feats)
             f.create_dataset('reference', data=reference_feats)
@@ -719,7 +719,7 @@ def extract(args):
 
     if 't' in args.target_set:
         train_feats = calc_feats(data_loaders['train'])
-        np.save(f'{ver}/extract/train_feats.npy', train_feats)
+        np.save(f'{ver}/extract/train_feats_phase2.npy', train_feats)
 
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
