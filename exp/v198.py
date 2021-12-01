@@ -564,7 +564,7 @@ def main_worker(gpu, ngpus_per_node, args):
         transforms.Normalize(mean=backbone.default_cfg['mean'], std=backbone.default_cfg['std']),
     ]
 
-    reference_paths = list(Path('../input/train_images/').glob('**/*.jpg'))
+    reference_paths = list(Path('../input/training_images/').glob('**/*.jpg'))
     preprocess = transforms.Compose([
         transforms.Resize((args.input_size, args.input_size)),
         transforms.ToTensor(),

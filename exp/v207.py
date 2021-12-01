@@ -540,7 +540,7 @@ def main_worker(gpu, ngpus_per_node, args):
     reference_paths = [f'../input/reference_images/{rid}.jpg' for rid in gt_['reference_id']]
     all_ref_ids = set([f'R{i:06d}' for i in range(1000000)])
     diff_ref_ids = all_ref_ids - set(gt_['reference_id'])
-    diff_reference_paths = [f'../input/train_images/{rid}.jpg' for rid in diff_ref_ids]
+    diff_reference_paths = [f'../input/training_images/{rid}.jpg' for rid in diff_ref_ids]
 
     preprocess = transforms.Compose([
         transforms.Resize((args.input_size, args.input_size)),
