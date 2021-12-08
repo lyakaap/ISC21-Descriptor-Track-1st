@@ -113,3 +113,30 @@ matching track local evaluation score:
   "recall_p90": 0.9192546583850931
 }
 ```
+
+## after
+
+```
+python v86.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract --gem-eval-p 1.0 --weight ./v86/train/checkpoint_0005.pth.tar --input-size 384 --target-set qrt ../input/
+
+python v207.py -a tf_efficientnetv2_m_in21ft1k --batch-size 256 --mode extract --gem-eval-p 1.0 --weight ./v207/train/checkpoint_0009.pth.tar --input-size 512 --target-set qrt ../input/
+```
+
+```
+gsutil -m cp -r gs://fbisc/exp/v86 .
+python v198.py \
+  -a tf_efficientnetv2_m_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 999 \
+  --epochs 3 --lr 0.1 --wd 1e-6 --batch-size 64 --ncrops 2 \
+  --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.0 --weight ./v86/train/checkpoint_0005.pth.tar \
+  --input-size 512 --sample-size 1000000 --memory-size 20000 \
+  ../input/training_images/
+`
+python v207.py \
+  -a tf_efficientnetv2_m_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 99999 \
+  --epochs 10 --lr 0.5 --wd 1e-6 --batch-size 16 --ncrops 2 \
+  --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.1 --weight ./v198/train/checkpoint_0001.pth.tar \
+  --input-size 512 --sample-size 1000000 --memory-size 1000 \
+  ../input/training_images/
+
+python v207.py -a tf_efficientnetv2_m_in21ft1k --batch-size 128 --mode extract --gem-eval-p 1.0 --weight ./v207/train/checkpoint_0009.pth.tar --input-size 512 --target-set qrt ../input/
+```
