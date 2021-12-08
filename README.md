@@ -104,12 +104,3 @@ descriptor track local evaluation score:
   "recall_p90": 0.9192546583850931
 }
 ```
-
-matching track local evaluation score:
-
-```
-{
-  "average_precision": 0.9479246965365696,
-  "recall_p90": 0.9192546583850931
-}
-```

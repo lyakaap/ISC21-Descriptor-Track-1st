@@ -25,16 +25,17 @@ def load_descriptor_h5(descs_submission_path):
 
 versions = [
     # 'v106',
+    # 'v86',
     'v107',
-    # 'v108',
     # 'v110',
 ]
 qs = []
 rs = []
 ts = []
 for ver in versions:
-    _query, _reference, _, query_ids, reference_ids = load_descriptor_h5(f'{ver}/extract/fb-isc-submission-phase2.h5')
-    _train = np.load(f'{ver}/extract/train_feats_phase2.npy')
+    # _query, _reference, _, query_ids, reference_ids = load_descriptor_h5(f'{ver}/extract/{ver}_iso.h5')
+    _query, _reference, _, query_ids, reference_ids = load_descriptor_h5(f'{ver}/extract/fb-isc-submission.h5')
+    _train = np.load(f'{ver}/extract/train_feats.npy')
     qs.append(_query)
     rs.append(_reference)
     ts.append(_train)
@@ -42,6 +43,8 @@ for ver in versions:
 query = np.concatenate(qs, axis=1)
 reference = np.concatenate(rs, axis=1)
 train = np.concatenate(ts, axis=1)
+
+_query1, _reference1, _, query_ids1, reference_ids1 = load_descriptor_h5(f'{ver}/extract/fb-isc-submission-phase1.h5')
 
 # query /= np.linalg.norm(query, axis=1, keepdims=True)
 # reference /= np.linalg.norm(reference, axis=1, keepdims=True)
@@ -116,7 +119,7 @@ index_reference = faiss.index_cpu_to_all_gpus(index_reference, co=co, ngpu=ngpu)
 index_reference.add(_reference)
 reference_dist, reference_ind = index_reference.search(_query, k=10)
 
-out = f'../exp/{versions[0]}/extract/{versions[0]}_iso_phase2.h5'
+out = f'../exp/{versions[0]}/extract/{versions[0]}_iso.h5'
 with h5py.File(out, 'w') as f:
     f.create_dataset('query', data=_query)
     f.create_dataset('reference', data=_reference)

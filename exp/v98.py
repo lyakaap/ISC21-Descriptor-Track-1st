@@ -1,50 +1,40 @@
 import argparse
 import builtins
-import math
 import os
 import pickle
 import random
 import shutil
 import subprocess
-from typing import Any, Dict, List, Optional
 import warnings
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 import h5py
 import numpy as np
+import timm
 import torch
+import torch.backends.cudnn as cudnn
+import torch.distributed as dist
+import torch.multiprocessing as mp
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.parallel
-import torch.backends.cudnn as cudnn
-import torch.distributed as dist
 import torch.optim
-import torch.multiprocessing as mp
 import torch.utils.data
 import torch.utils.data.distributed
 import torchvision.transforms as transforms
-import torchvision.datasets as datasets
-import torchvision.models as models
-import timm
-from PIL import Image, ImageFilter
-from tqdm import tqdm
-from pytorch_metric_learning.utils import distributed as pml_dist
-from pytorch_metric_learning import losses
-from augly.image.functional import overlay_emoji, overlay_text, overlay_image
+from augly.image import (EncodingQuality, OneOf, RandomBlur,
+                         RandomEmojiOverlay, RandomPixelization,
+                         RandomRotation, ShufflePixels)
+from augly.image.functional import overlay_emoji, overlay_image, overlay_text
 from augly.image.transforms import BaseTransform
-from augly.utils.constants import FONTS_DIR, FONT_LIST_PATH, SMILEY_EMOJI_DIR
-from augly.utils.base_paths import MODULE_BASE_DIR
 from augly.utils import pathmgr
-from augly.image import (
-    EncodingQuality,
-    OverlayOntoScreenshot,
-    RandomBlur,
-    RandomEmojiOverlay,
-    RandomPixelization,
-    RandomRotation,
-    ShufflePixels,
-    OneOf,
-)
+from augly.utils.base_paths import MODULE_BASE_DIR
+from augly.utils.constants import FONT_LIST_PATH, FONTS_DIR, SMILEY_EMOJI_DIR
+from PIL import Image, ImageFilter
+from pytorch_metric_learning import losses
+from pytorch_metric_learning.utils import distributed as pml_dist
+from tqdm import tqdm
 
 warnings.simplefilter('ignore', UserWarning)
 ver = __file__.replace('.py', '')
@@ -223,18 +213,6 @@ class RandomOverlayText(BaseTransform):
             blacklist = [
                 'TypeMyMusic',
                 'PainttheSky-Regular',
-                # 'NotoSerifDevanagari-Regular',
-                # 'NotoSansKaithi-Regular',
-                # 'NotoSansPhagsPa-Regular',
-                # 'NotoSansJavanese-Regular',
-                # 'NotoSansMongolian-Regular',
-                # 'NotoSansTibetan-Regular',
-                # 'NotoSansTaiViet-Regular',
-                # 'NotoSansCanadianAboriginal-Regular',
-                # 'NotoSansTaiLe-Regular',
-                # 'NotoSansCoptic-Regular',
-                # 'NotoSansSaurashtra-Regular',
-                # 'NotoSansThaana-Regular',
             ]
             self.font_list = [
                 f for f in font_list
@@ -532,8 +510,6 @@ def main_worker(gpu, ngpus_per_node, args):
         transforms.Normalize(mean=backbone.default_cfg['mean'], std=backbone.default_cfg['std'])
     ]
 
-    overlay1 = OverlayOntoScreenshot()
-    overlay2 = OverlayOntoScreenshot(template_filepath=overlay1.template_filepath.replace('web', 'mobile'))
     aug_list = [
         transforms.ColorJitter(0.8, 0.8, 0.8, 0.2),
         RandomPixelization(p=0.25),
@@ -550,13 +526,10 @@ def main_worker(gpu, ngpus_per_node, args):
     ]
     aug_hard = [
         RandomRotation(p=0.35),
-        # OneOf([overlay1, overlay2], p=0.01),
         RandomOverlayImageAndResizedCrop(
             train_paths, opacity_lower=0.4, size_lower=0.2, size_upper=0.8,
             input_size=args.input_size, moderate_scale_lower=0.7, hard_scale_lower=0.15, overlay_p=0.1, p=1.0,
         ),
-        # RandomOverlayImage(opacity_lower=0.5, size_lower=0.3, size_upper=0.7, p=0.075),  # harder
-        # RandomOverlayImage(opacity_lower=0.4, size_lower=0.2, size_upper=0.8, p=0.1),  # harder
         ShuffledAug(aug_list),
         convert2rgb,
         transforms.ToTensor(),

@@ -1,51 +1,38 @@
 import argparse
 import builtins
-import math
 import os
 import pickle
 import random
 import shutil
 import subprocess
-from typing import Any, Dict, List, Optional
 import warnings
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 import h5py
 import numpy as np
 import pandas as pd
+import timm
 import torch
+import torch.backends.cudnn as cudnn
+import torch.distributed as dist
+import torch.multiprocessing as mp
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.parallel
-import torch.backends.cudnn as cudnn
-import torch.distributed as dist
 import torch.optim
-import torch.multiprocessing as mp
 import torch.utils.data
 import torch.utils.data.distributed
 import torchvision.transforms as transforms
-import torchvision.datasets as datasets
-import torchvision.models as models
-import timm
-from PIL import Image, ImageFilter
-from tqdm import tqdm
-from pytorch_metric_learning.utils import distributed as pml_dist
-from pytorch_metric_learning import losses
-from augly.image.functional import overlay_emoji, overlay_text, overlay_image
+from augly.image.functional import overlay_emoji, overlay_image, overlay_text
 from augly.image.transforms import BaseTransform
-from augly.utils.constants import FONTS_DIR, FONT_LIST_PATH, SMILEY_EMOJI_DIR
-from augly.utils.base_paths import MODULE_BASE_DIR
 from augly.utils import pathmgr
-from augly.image import (
-    EncodingQuality,
-    OverlayOntoScreenshot,
-    RandomBlur,
-    RandomEmojiOverlay,
-    RandomPixelization,
-    RandomRotation,
-    ShufflePixels,
-    OneOf,
-)
+from augly.utils.base_paths import MODULE_BASE_DIR
+from augly.utils.constants import FONT_LIST_PATH, FONTS_DIR, SMILEY_EMOJI_DIR
+from PIL import Image, ImageFilter
+from pytorch_metric_learning import losses
+from pytorch_metric_learning.utils import distributed as pml_dist
+from tqdm import tqdm
 
 warnings.simplefilter('ignore', UserWarning)
 ver = __file__.replace('.py', '')
@@ -234,18 +221,6 @@ class RandomOverlayText(BaseTransform):
             blacklist = [
                 'TypeMyMusic',
                 'PainttheSky-Regular',
-                # 'NotoSerifDevanagari-Regular',
-                # 'NotoSansKaithi-Regular',
-                # 'NotoSansPhagsPa-Regular',
-                # 'NotoSansJavanese-Regular',
-                # 'NotoSansMongolian-Regular',
-                # 'NotoSansTibetan-Regular',
-                # 'NotoSansTaiViet-Regular',
-                # 'NotoSansCanadianAboriginal-Regular',
-                # 'NotoSansTaiLe-Regular',
-                # 'NotoSansCoptic-Regular',
-                # 'NotoSansSaurashtra-Regular',
-                # 'NotoSansThaana-Regular',
             ]
             self.font_list = [
                 f for f in font_list
