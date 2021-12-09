@@ -1,4 +1,7 @@
-# Facebook AI Image Similarity Challenge
+# ISC21-Descriptor-Track-1st
+
+The 1st Place Solution of the Facebook AI Image Similarity Challenge (ISC21) : Descriptor Track.
+You can check our solution tech report from: [Contrastive Learning with Large Memory Bank and Negative Embedding Subtraction for Accurate Copy Detection](https://arxiv.org/abs/2112.04323)
 
 ## setup
 
