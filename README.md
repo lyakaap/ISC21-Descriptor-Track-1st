@@ -67,7 +67,7 @@ python v98.py \
 
 python v107.py \
   -a tf_efficientnetv2_m_in21ft1k --dist-url 'tcp://localhost:10001' --multiprocessing-distributed --world-size 1 --rank 0 --seed 99999 \
-  --epochs 10 --lr 0.5 --wd 1e-6 --batch-size 16 --ncrops 2 \
+  --epochs 10 --lr 0.5 --wd 1e-6 \
   --gem-p 1.0 --pos-margin 0.0 --neg-margin 1.1 --weight ./v98/train/checkpoint_0001.pth.tar \
   --input-size 512 --sample-size 1000000 --memory-size 1000 \
   ../input/training_images/
