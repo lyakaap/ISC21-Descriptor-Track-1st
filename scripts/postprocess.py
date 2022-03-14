@@ -36,31 +36,14 @@ def negative_embedding_subtraction(
         Subtracted embedding.
     """
     for _ in range(num_iter):
-        _, topk_indexes = faiss_index.search(embedding, k=k)
-        topk_negative_embeddings = negative_embeddings[topk_indexes]
-
-        embedding -= (topk_negative_embeddings.mean(axis=1) * beta)
-        embedding /= np.linalg.norm(embedding, axis=1, keepdims=True)
-
-    return embedding.astype('float32')
-
-
-def negative_embedding_subtraction(
-    embedding: np.ndarray,
-    negative_embeddings: np.ndarray,
-    faiss_index: faiss.IndexFlatIP,
-    num_iter: int = 3,
-    k: int = 10,
-    beta: float = 0.35,
-) -> np.ndarray:
-    for _ in range(num_iter):
         _, topk_indexes = faiss_index.search(embedding, k=k)  # search for hard negatives
         topk_negative_embeddings = negative_embeddings[topk_indexes]
 
         embedding -= (topk_negative_embeddings.mean(axis=1) * beta)  # subtract by hard negative embeddings
         embedding /= np.linalg.norm(embedding, axis=1, keepdims=True)  # L2-normalize
 
-    return embedding
+    return embedding.astype('float32')
+
 
 def load_descriptor_h5(descs_submission_path):
     """Load datasets from descriptors submission hdf5 file."""
