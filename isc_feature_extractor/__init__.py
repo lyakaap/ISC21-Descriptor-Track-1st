@@ -1,0 +1,1 @@
+from isc_feature_extractor.model import create_model
