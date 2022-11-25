@@ -4,6 +4,11 @@ The 1st Place Solution of the Facebook AI Image Similarity Challenge (ISC21) : D
 
 You can check our solution tech report from: [Contrastive Learning with Large Memory Bank and Negative Embedding Subtraction for Accurate Copy Detection](https://arxiv.org/abs/2112.04323)
 
+Main features:
+- The weights of the competition winning models are publicly available and easy to use.
+- Without any fine-tuning or something, our models work well with image/video copy detection, image retrieval, and so on.
+  - In video copy detection task, it is reported that our model has the best result among recent frame feature extractor, despite with the smallest feature dimensionality (ref: https://github.com/alipay/VCSL).
+
 ## Installation
 
 ```
