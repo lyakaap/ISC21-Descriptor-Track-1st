@@ -7,8 +7,8 @@ import torch.nn.functional as F
 from torchvision import transforms
 
 AVAILABLE_MODELS = {
-    "isc_selfsup_v98": "https://github.com/lyakaap/ISC21-Descriptor-Track-1st/releases/download/v1.0.0/isc_selfsup_v98.pth.tar",
-    "isc_ft_v107": "https://github.com/lyakaap/ISC21-Descriptor-Track-1st/releases/download/v1.0.0/isc_ft_v107.pth.tar",
+    "isc_selfsup_v98": "https://github.com/lyakaap/ISC21-Descriptor-Track-1st/releases/download/v1.0.1/isc_selfsup_v98.pth.tar",
+    "isc_ft_v107": "https://github.com/lyakaap/ISC21-Descriptor-Track-1st/releases/download/v1.0.1/isc_ft_v107.pth.tar",
 }
 DEFAULT_CKPT_PATH = torch.hub.get_dir()
 
