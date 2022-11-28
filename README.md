@@ -17,7 +17,7 @@ pip install git+https://github.com/lyakaap/ISC21-Descriptor-Track-1st
 
 ## Usage
 
-```
+```python
 import requests
 import torch
 from PIL import Image
