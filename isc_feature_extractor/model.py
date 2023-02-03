@@ -126,7 +126,13 @@ def create_model(
     state_dict = {}
     for s in ckpt["state_dict"]:
         state_dict[s.replace("module.", "")] = ckpt["state_dict"][s]
-    model.load_state_dict(state_dict)
+    if fc_dim != 256:
+        del state_dict["fc.weight"]
+        del state_dict["bn.weight"]
+        del state_dict["bn.bias"]
+        del state_dict["bn.running_mean"]
+        del state_dict["bn.running_var"]
+    model.load_state_dict(state_dict, strict=False)
 
     preprocessor = transforms.Compose(
         [
