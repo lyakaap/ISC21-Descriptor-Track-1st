@@ -35,6 +35,7 @@ class ISCNet(nn.Module):
         fc_dim: int = 256,
         p: float = 1.0,
         eval_p: float = 1.0,
+        l2_normalize=True,
     ):
 
         super().__init__()
@@ -47,6 +48,7 @@ class ISCNet(nn.Module):
         self._init_params()
         self.p = p
         self.eval_p = eval_p
+        self.l2_normalize = l2_normalize
 
     def _init_params(self):
         nn.init.xavier_normal_(self.fc.weight)
@@ -60,7 +62,8 @@ class ISCNet(nn.Module):
         x = gem(x, p).view(batch_size, -1)
         x = self.fc(x)
         x = self.bn(x)
-        x = F.normalize(x)
+        if self.l2_normalize:
+            x = F.normalize(x)
         return x
 
 
@@ -74,6 +77,7 @@ def create_model(
     fc_dim: int = 256,
     p: float = 1.0,
     eval_p: float = 1.0,
+    l2_normalize: bool = True,
     device: str = "cuda",
     is_training: bool = False,
 ) -> tuple[ISCNet, transforms.Compose]:
@@ -94,6 +98,8 @@ def create_model(
             Power used in gem pooling for training.
         eval_p (`float=1.0`):
             Power used in gem pooling for evaluation.
+        l2_normalize (`bool=True`):
+            Whether to normalize the feature vector.
         device (`str='cuda'`):
             Device to load the model.
         is_training (`bool=False`):
