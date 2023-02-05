@@ -126,19 +126,32 @@ def create_model(
     input_size = ckpt["args"].input_size
 
     backbone = timm.create_model(arch, features_only=True)
-    model = ISCNet(backbone=backbone, fc_dim=fc_dim, p=p, eval_p=eval_p)
+    model = ISCNet(
+        backbone=backbone,
+        fc_dim=fc_dim,
+        p=p,
+        eval_p=eval_p,
+        l2_normalize=l2_normalize,
+    )
     model.to(device).train(is_training)
 
     state_dict = {}
     for s in ckpt["state_dict"]:
         state_dict[s.replace("module.", "")] = ckpt["state_dict"][s]
+
     if fc_dim != 256:
-        del state_dict["fc.weight"]
-        del state_dict["bn.weight"]
-        del state_dict["bn.bias"]
-        del state_dict["bn.running_mean"]
-        del state_dict["bn.running_var"]
-    model.load_state_dict(state_dict, strict=False)
+        # interpolate to new fc_dim
+        state_dict["fc.weight"] = F.interpolate(
+            state_dict["fc.weight"].permute(1, 0).unsqueeze(0),
+            size=fc_dim, mode="linear", align_corners=False,
+        ).squeeze(0).permute(1, 0)
+        for bn_param in ["bn.weight", "bn.bias", "bn.running_mean", "bn.running_var"]:
+            state_dict[bn_param] = F.interpolate(
+                state_dict[bn_param].unsqueeze(0).unsqueeze(0),
+                size=fc_dim, mode="linear", align_corners=False,
+            ).squeeze(0).squeeze(0)
+
+    model.load_state_dict(state_dict)
 
     preprocessor = transforms.Compose(
         [
