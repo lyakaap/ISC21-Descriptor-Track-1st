@@ -12,7 +12,7 @@ Main features:
 ## Installation
 
 ```
-pip install git+https://github.com/lyakaap/ISC21-Descriptor-Track-1st
+pip install git+https://github.com/VobileLA/ISC21-Descriptor-Track-1st
 ```
 
 ## Usage
