@@ -124,6 +124,9 @@ def create_model(
     )
     arch = ckpt["arch"]  # tf_efficientnetv2_m_in21ft1k
     input_size = ckpt["args"].input_size
+    
+    if arch == "tf_efficientnetv2_m_in21ft1k":
+        arch = "timm/tf_efficientnetv2_m.in21k_ft_in1k"
 
     backbone = timm.create_model(arch, features_only=True)
     model = ISCNet(
